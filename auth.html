@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07080d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>SIS — Say It Safely</title>
+
+  <link rel="icon" href="https://i.ibb.co/xt8mxn0H/favicon-96x96.png">
+  <link rel="apple-touch-icon" href="https://i.ibb.co/DD2rZ1XL/icon-512.png">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="global.css">
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body data-page="auth">
+
+<!-- ══════════════════════════════════════════
+     ÉCRAN 1 — SLIDES ONBOARDING
+══════════════════════════════════════════ -->
+<div id="screen-slides" class="auth-screen active">
+
+  <!-- Slides container -->
+  <div class="slides-wrapper" id="slides-wrapper">
+
+    <!-- SLIDE 1 — Intro SIS -->
+    <div class="slide" data-index="0">
+      <div class="slide-visual slide-visual-1">
+        <div class="slide-orb orb-1"></div>
+        <div class="slide-orb orb-2"></div>
+        <div class="slide-icon-wrap">
+          <img src="https://i.ibb.co/DD2rZ1XL/icon-512.png" alt="SIS" class="slide-logo-img">
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-tag">Say It Safely</div>
+        <h1 class="slide-title">Dis ce que tu<br>penses vraiment.</h1>
+        <p class="slide-desc">SIS est l'espace où tu t'exprimes sans filtre, sans jugement. Anonyme si tu veux. Libre toujours.</p>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 — Feed & Posts -->
+    <div class="slide" data-index="1">
+      <div class="slide-visual slide-visual-2">
+        <div class="slide-orb orb-3"></div>
+        <div class="slide-mock-feed">
+          <div class="mock-post">
+            <div class="mock-post-header">
+              <div class="mock-av" style="background:linear-gradient(135deg,#f04f5a,#f59e0b)"></div>
+              <div class="mock-post-meta"><div class="mock-bar w-60"></div><div class="mock-bar w-40 sm"></div></div>
+              <div class="mock-badge red">Confession</div>
+            </div>
+            <div class="mock-bar w-full sm" style="margin:8px 0 4px"></div>
+            <div class="mock-bar w-80 sm"></div>
+          </div>
+          <div class="mock-post" style="margin-top:8px;opacity:0.7">
+            <div class="mock-post-header">
+              <div class="mock-av" style="background:linear-gradient(135deg,#5B8EF4,#8B5CF6)"></div>
+              <div class="mock-post-meta"><div class="mock-bar w-50"></div><div class="mock-bar w-30 sm"></div></div>
+              <div class="mock-badge blue">Battle ⚡</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-tag">8 types de posts</div>
+        <h1 class="slide-title">Un feed comme<br>nulle part ailleurs.</h1>
+        <p class="slide-desc">Confession, Battle, Burn, Whisper, Poll, Thread, CSDPM, Media. Un algorithme qui te comprend vraiment.</p>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 — Anonymat & Identité -->
+    <div class="slide" data-index="2">
+      <div class="slide-visual slide-visual-3">
+        <div class="slide-orb orb-4"></div>
+        <div class="slide-identity-demo">
+          <div class="id-option active-id">
+            <div class="id-av" style="background:linear-gradient(135deg,#f04f5a,#8B5CF6)">?</div>
+            <span>Anonyme</span>
+          </div>
+          <div class="id-option">
+            <div class="id-av" style="background:linear-gradient(135deg,#5B8EF4,#22d47a)">🎭</div>
+            <span>Mystère</span>
+          </div>
+          <div class="id-option">
+            <div class="id-av" style="background:linear-gradient(135deg,#5B8EF4,#8B5CF6)">E</div>
+            <span>Mon nom</span>
+          </div>
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-tag">Identité à la carte</div>
+        <h1 class="slide-title">Tu choisis qui<br>tu veux être.</h1>
+        <p class="slide-desc">Poste anonymement, sous un masque mystère, ou avec ton vrai nom. Post par post. Ton choix, ta règle.</p>
+      </div>
+    </div>
+
+    <!-- SLIDE 4 — Chat & Connexions -->
+    <div class="slide" data-index="3">
+      <div class="slide-visual slide-visual-4">
+        <div class="slide-orb orb-5"></div>
+        <div class="slide-chat-demo">
+          <div class="chat-bubble-demo them">Tu connais le secret ? 🤫</div>
+          <div class="chat-bubble-demo me">Bien sûr… mais ça reste entre nous 😏</div>
+          <div class="chat-bubble-demo them">Chat Mystère 🔥 1 jour de suite</div>
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-tag">Chat & Mystère</div>
+        <h1 class="slide-title">Rencontres sans<br>les tabous.</h1>
+        <p class="slide-desc">Salons publics, DMs privés, Chat Mystère aléatoire. Chiffré AES-256. Personne ne sait qui tu es.</p>
+      </div>
+    </div>
+
+    <!-- SLIDE 5 — Lien anonyme -->
+    <div class="slide" data-index="4">
+      <div class="slide-visual slide-visual-5">
+        <div class="slide-orb orb-6"></div>
+        <div class="slide-link-demo">
+          <div class="link-card">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span>sis-send.vercel.app/?to=toi</span>
+          </div>
+          <div class="link-arrow">↓</div>
+          <div class="link-msg">
+            <div class="link-msg-label">Message anonyme reçu</div>
+            <div class="link-msg-text">"T'as changé ma vie sans le savoir 💙"</div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-content">
+        <div class="slide-tag">Messages anonymes</div>
+        <h1 class="slide-title">Reçois des vérités<br>que personne n'ose dire.</h1>
+        <p class="slide-desc">Partage ton lien SIS sur TikTok, Instagram, WhatsApp. Tes followers te parlent sans se dévoiler.</p>
+      </div>
+    </div>
+
+  </div><!-- /slides-wrapper -->
+
+  <!-- Dots de pagination -->
+  <div class="slides-dots" id="slides-dots">
+    <div class="dot active" data-i="0"></div>
+    <div class="dot" data-i="1"></div>
+    <div class="dot" data-i="2"></div>
+    <div class="dot" data-i="3"></div>
+    <div class="dot" data-i="4"></div>
+  </div>
+
+  <!-- Actions slides -->
+  <div class="slides-actions">
+    <button class="btn-ghost" id="btn-skip">Passer</button>
+    <button class="btn-primary" id="btn-next" style="width:auto;padding:13px 32px">Suivant →</button>
+  </div>
+
+</div><!-- /screen-slides -->
+
+<!-- ══════════════════════════════════════════
+     ÉCRAN 2 — AUTH (Login / Register)
+══════════════════════════════════════════ -->
+<div id="screen-auth" class="auth-screen">
+
+  <!-- Header -->
+  <div class="auth-header">
+    <button class="auth-back-btn" id="btn-back-to-slides" aria-label="Retour">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="auth-logo-row">
+      <img src="https://i.ibb.co/xt8mxn0H/favicon-96x96.png" alt="SIS" class="auth-logo-img">
+      <div>
+        <div class="auth-logo-name">SIS</div>
+        <div class="auth-logo-sub">Say It Safely</div>
+      </div>
+    </div>
+    <!-- Switcher langue -->
+    <div class="lang-switcher" id="lang-switcher">
+      <span class="lang-opt active" data-lang="fr">FR</span>
+      <span class="lang-opt" data-lang="en">EN</span>
+      <span class="lang-opt" data-lang="pt">PT</span>
+    </div>
+  </div>
+
+  <!-- Tabs Login / Register -->
+  <div class="auth-tabs" id="auth-tabs">
+    <div class="auth-tab active" data-tab="login" id="tab-login">Connexion</div>
+    <div class="auth-tab" data-tab="register" id="tab-register">Inscription</div>
+  </div>
+
+  <!-- ── FORMULAIRE LOGIN ── -->
+  <div id="form-login" class="auth-form active">
+    <div class="auth-welcome">
+      <h2 class="auth-welcome-title" id="login-title">Bon retour 👋</h2>
+      <p class="auth-welcome-sub" id="login-sub">Content de te revoir sur SIS.</p>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="login-email">Email</label>
+      <div class="input-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        <input type="email" id="login-email" class="input" placeholder="ton@email.com" autocomplete="email">
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label class="input-label" for="login-pwd">Mot de passe</label>
+      <div class="input-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <input type="password" id="login-pwd" class="input" placeholder="••••••••" autocomplete="current-password">
+        <button class="toggle-pwd" id="toggle-login-pwd" type="button" aria-label="Voir le mot de passe">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="auth-forgot">
+      <span id="btn-forgot">Mot de passe oublié ?</span>
+    </div>
+
+    <button class="btn-primary" id="btn-login">Se connecter</button>
+
+    <div class="divider-text"><span>ou</span></div>
+
+    <button class="btn-anon" id="btn-anon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M17 3a2 2 0 1 1 0 4"/></svg>
+      Continuer anonymement
+    </button>
+  </div>
+
+  <!-- ── FORMULAIRE REGISTER ── -->
+  <div id="form-register" class="auth-form">
+    <div class="auth-welcome">
+      <h2 class="auth-welcome-title">Rejoins SIS 🚀</h2>
+      <p class="auth-welcome-sub">Crée ton compte en quelques secondes.</p>
+    </div>
+
+    <!-- ÉTAPE 1 : pseudo + email -->
+    <div id="reg-step-1">
+      <div class="input-group">
+        <label class="input-label" for="reg-pseudo">Pseudo</label>
+        <div class="input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <input type="text" id="reg-pseudo" class="input" placeholder="@tonpseudo" maxlength="24" autocomplete="username" spellcheck="false">
+          <span class="input-status" id="pseudo-status"></span>
+        </div>
+        <p class="input-hint">3–24 caractères · lettres, chiffres, _, -</p>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="reg-email">Email</label>
+        <div class="input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+          <input type="email" id="reg-email" class="input" placeholder="ton@email.com" autocomplete="email">
+        </div>
+        <p class="input-hint">🔒 Ton email reste privé — jamais affiché.</p>
+      </div>
+
+      <button class="btn-primary" id="btn-reg-step1">Continuer →</button>
+    </div>
+
+    <!-- ÉTAPE 2 : confirmation email (après envoi) -->
+    <div id="reg-step-2" style="display:none">
+      <div class="email-confirm-card">
+        <div class="email-confirm-icon">📬</div>
+        <h3 class="email-confirm-title">Vérifie ta boîte mail</h3>
+        <p class="email-confirm-sub">On a envoyé un lien de confirmation à<br><strong id="reg-email-display"></strong></p>
+        <div class="email-confirm-hint">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Vérifie aussi tes <strong>spams</strong> si tu ne vois rien.
+        </div>
+        <button class="btn-outline w-full" id="btn-resend-email" style="margin-top:12px">Renvoyer l'email</button>
+        <button class="btn-primary" id="btn-email-confirmed" style="margin-top:10px">J'ai confirmé mon email →</button>
+      </div>
+    </div>
+
+    <!-- ÉTAPE 3 : mot de passe (après confirmation email) -->
+    <div id="reg-step-3" style="display:none">
+      <div class="auth-welcome" style="margin-bottom:20px">
+        <h2 class="auth-welcome-title">Plus qu'une étape 🔐</h2>
+        <p class="auth-welcome-sub">Choisis un mot de passe fort.</p>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="reg-pwd">Mot de passe</label>
+        <div class="input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="reg-pwd" class="input" placeholder="Min. 8 caractères" autocomplete="new-password">
+          <button class="toggle-pwd" id="toggle-reg-pwd" type="button">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <!-- Barre de force mot de passe -->
+        <div class="pwd-strength" id="pwd-strength">
+          <div class="pwd-strength-bar">
+            <div class="pwd-strength-fill" id="pwd-strength-fill"></div>
+          </div>
+          <span class="pwd-strength-label" id="pwd-strength-label"></span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label" for="reg-pwd2">Confirmer le mot de passe</label>
+        <div class="input-wrap">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <input type="password" id="reg-pwd2" class="input" placeholder="Répète ton mot de passe" autocomplete="new-password">
+          <span class="input-status" id="pwd2-status"></span>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btn-reg-step3">Créer mon compte →</button>
+    </div>
+
+  </div><!-- /form-register -->
+
+</div><!-- /screen-auth -->
+
+<!-- ══════════════════════════════════════════
+     ÉCRAN 3 — CENTRES D'INTÉRÊT
+══════════════════════════════════════════ -->
+<div id="screen-interests" class="auth-screen">
+  <div class="interests-header">
+    <div class="auth-logo-row" style="justify-content:center">
+      <img src="https://i.ibb.co/xt8mxn0H/favicon-96x96.png" alt="SIS" class="auth-logo-img">
+    </div>
+    <h2 class="interests-title">Tes centres d'intérêt</h2>
+    <p class="interests-sub">Choisis <strong>au moins 3</strong> · le feed s'adapte à toi</p>
+    <div class="interests-counter">
+      <span id="interests-count">0</span> sélectionnés
+    </div>
+  </div>
+
+  <div class="interest-grid" id="interest-grid">
+    <div class="interest-chip" data-tag="musique"><em>🎵</em>Musique</div>
+    <div class="interest-chip" data-tag="gaming"><em>🎮</em>Gaming</div>
+    <div class="interest-chip" data-tag="tech"><em>💻</em>Tech</div>
+    <div class="interest-chip" data-tag="relations"><em>❤️</em>Relations</div>
+    <div class="interest-chip" data-tag="art"><em>🎨</em>Art</div>
+    <div class="interest-chip" data-tag="sport"><em>⚽</em>Sport</div>
+    <div class="interest-chip" data-tag="education"><em>📚</em>Éducation</div>
+    <div class="interest-chip" data-tag="actu"><em>🌍</em>Actualité</div>
+    <div class="interest-chip" data-tag="humour"><em>😂</em>Humour</div>
+    <div class="interest-chip" data-tag="mode"><em>👗</em>Mode</div>
+    <div class="interest-chip" data-tag="food"><em>🍜</em>Food</div>
+    <div class="interest-chip" data-tag="voyage"><em>✈️</em>Voyage</div>
+    <div class="interest-chip" data-tag="politique"><em>🗳️</em>Politique</div>
+    <div class="interest-chip" data-tag="spiritualite"><em>🙏</em>Spiritualité</div>
+    <div class="interest-chip" data-tag="finance"><em>💰</em>Finance</div>
+    <div class="interest-chip" data-tag="sante"><em>🏃</em>Santé</div>
+    <div class="interest-chip" data-tag="cinema"><em>🎬</em>Cinéma</div>
+    <div class="interest-chip" data-tag="manga"><em>📺</em>Manga/Série</div>
+  </div>
+
+  <div class="interests-actions">
+    <button class="btn-primary" id="btn-interests-done" disabled>Continuer →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ÉCRAN 4 — PHOTO DE PROFIL + BIO
+══════════════════════════════════════════ -->
+<div id="screen-profile-setup" class="auth-screen">
+  <div class="profile-setup-header">
+    <button class="auth-back-btn" id="btn-back-interests">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <h2 class="profile-setup-title">Personnalise ton profil</h2>
+    <button class="btn-ghost btn-sm" id="btn-skip-setup">Passer</button>
+  </div>
+
+  <div class="profile-setup-body">
+    <!-- Photo de profil -->
+    <div class="avatar-upload-zone" id="avatar-upload-zone">
+      <div class="avatar-preview" id="avatar-preview">
+        <div class="av av-xl" id="avatar-initials" style="background:linear-gradient(135deg,#5B8EF4,#8B5CF6)">?</div>
+        <img id="avatar-img" class="av av-xl" style="display:none;object-fit:cover" alt="Photo de profil">
+      </div>
+      <div class="avatar-upload-label">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Ajouter une photo
+      </div>
+      <input type="file" id="avatar-input" accept="image/*" style="display:none">
+    </div>
+
+    <!-- Progress upload -->
+    <div class="upload-progress" id="upload-progress" style="display:none">
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill" id="upload-progress-fill"></div>
+      </div>
+      <span id="upload-progress-label">Upload… 0%</span>
+    </div>
+
+    <!-- Bio -->
+    <div class="input-group">
+      <label class="input-label" for="setup-bio">Bio <span style="color:var(--muted);font-weight:400;text-transform:none">(optionnel)</span></label>
+      <textarea id="setup-bio" class="input" rows="3" placeholder="Dis quelque chose sur toi…" maxlength="160"></textarea>
+      <div class="bio-counter"><span id="bio-count">0</span>/160</div>
+    </div>
+
+  </div>
+
+  <div class="profile-setup-actions">
+    <button class="btn-primary" id="btn-go-feed">Aller sur le feed 🚀</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     OVERLAY CGU (bloquant)
+══════════════════════════════════════════ -->
+<div id="cgu-overlay" class="overlay-backdrop" style="display:none" role="dialog" aria-modal="true" aria-label="Conditions d'utilisation">
+  <div class="cgu-sheet" id="cgu-sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Conditions d'utilisation</h2>
+    <p class="sheet-sub">Lis-les, c'est important 🙏</p>
+
+    <div class="cgu-content" id="cgu-content">
+      <div class="cgu-section">
+        <h4>🔐 Chiffrement & Confidentialité</h4>
+        <p>Tes messages privés sont chiffrés AES-256-GCM de bout en bout. Le mode anonyme ne collecte aucune donnée personnelle identifiable.</p>
+      </div>
+      <div class="cgu-section">
+        <h4>🚫 Contenu interdit</h4>
+        <p>Tout contenu illégal, haineux, pornographique, ou incitant à la violence est strictement interdit et entraîne un ban immédiat.</p>
+      </div>
+      <div class="cgu-section">
+        <h4>⚠️ Signalements & Modération</h4>
+        <p>3 signalements validés = bannissement automatique. SIS utilise une modération automatique et humaine.</p>
+      </div>
+      <div class="cgu-section">
+        <h4>🌍 Géolocalisation</h4>
+        <p>Ton pays est détecté via ton adresse IP uniquement pour afficher ton drapeau. Aucune localisation précise n'est enregistrée.</p>
+      </div>
+      <div class="cgu-section">
+        <h4>👶 Âge minimum</h4>
+        <p>Tu dois avoir <strong>13 ans ou plus</strong> pour utiliser SIS. En créant un compte tu confirmes ton âge.</p>
+      </div>
+      <div class="cgu-section">
+        <h4>📷 Données & Images</h4>
+        <p>Les images uploadées sont stockées sur Cloudinary et optimisées automatiquement. Tu peux supprimer ton compte et toutes tes données à tout moment.</p>
+      </div>
+    </div>
+
+    <label class="cgu-check" id="cgu-check-label">
+      <div class="cgu-check-box" id="cgu-check-box"></div>
+      <span class="check-label">J'ai lu et j'accepte les CGU et la politique de confidentialité</span>
+    </label>
+
+    <button class="btn-primary" id="btn-cgu-accept" disabled>Accepter et continuer</button>
+    <p class="cgu-footer">En continuant, tu acceptes les <span class="text-blue" style="cursor:pointer">conditions d'utilisation</span> de SIS.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     OVERLAY MOT DE PASSE OUBLIÉ
+══════════════════════════════════════════ -->
+<div id="forgot-overlay" class="overlay-backdrop" style="display:none">
+  <div class="forgot-sheet">
+    <div class="sheet-handle"></div>
+    <h2 class="sheet-title">Réinitialiser le mot de passe</h2>
+    <p class="sheet-sub">Entre ton email pour recevoir un lien de réinitialisation.</p>
+    <div class="input-group">
+      <div class="input-wrap">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
+        <input type="email" id="forgot-email" class="input" placeholder="ton@email.com">
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-forgot-send">Envoyer le lien</button>
+    <button class="btn-ghost w-full" id="btn-forgot-cancel" style="margin-top:10px">Annuler</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LOADER GLOBAL
+══════════════════════════════════════════ -->
+<div id="global-loader" class="global-loader" style="display:none">
+  <div class="loader-spin"></div>
+</div>
+
+<!-- Firebase Compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
