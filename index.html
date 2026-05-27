@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="0;url=auth.html">
+  <title>SIS — Say It Safely</title>
+  <link rel="icon" href="https://i.ibb.co/xt8mxn0H/favicon-96x96.png">
+  <style>
+    body { background: #07080d; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .loader { width: 40px; height: 40px; border: 3px solid rgba(91,142,244,0.2); border-top-color: #5B8EF4; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="loader"></div>
+  <script>
+    /* Vérifie si déjà connecté via localStorage */
+    window.location.href = 'auth.html';
+  </script>
+</body>
+</html>
