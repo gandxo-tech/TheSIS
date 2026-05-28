@@ -275,10 +275,11 @@ img {
 .bnav {
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   width: 100%;
   max-width: 480px;
+  margin: 0 auto;
   height: var(--nav-h);
   background: var(--nav-bg);
   border-top: 1px solid var(--nav-border);
@@ -286,8 +287,7 @@ img {
   align-items: center;
   justify-content: space-around;
   padding: 0 var(--sp-2);
-  z-index: var(--z-nav);
-  /* backdrop-filter: none — retiré car inutile et peut créer stacking context */
+  z-index: 9999;
 }
 
 /* Item nav standard */
@@ -1483,19 +1483,7 @@ textarea.input {
 }
 
 /* ══ BOTTOM NAV — fix Android garanti ══ */
-.bnav {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  width: 100% !important;
-  max-width: 480px !important;
-  /* BUG fix: transform cause problème sur certains Android - utiliser margin auto */
-  margin-left: auto !important;
-  margin-right: auto !important;
-  z-index: 9999 !important;
-  height: var(--nav-h) !important;
-}
+/* nav fix déjà appliqué ci-dessus */
 
 /* Fix padding-bottom pour toutes les pages */
 body { padding-bottom: calc(var(--nav-h) + 4px); }

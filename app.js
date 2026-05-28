@@ -701,6 +701,20 @@
               return;
             }
 
+            /* FIX: Compte fantôme - email non vérifié après création */
+            if (!user.isAnonymous && !user.emailVerified) {
+              var createdAt = user.metadata && user.metadata.creationTime
+                ? new Date(user.metadata.creationTime).getTime()
+                : Date.now();
+              var age = Date.now() - createdAt;
+              /* Si compte créé depuis plus de 24h et email pas vérifié → déconnecter */
+              if (age > 86400000) {
+                SIS.toast.warning('Email non vérifié', 'Vérifie ta boîte mail ou recrée un compte.');
+                firebase.auth().signOut();
+                return;
+              }
+            }
+
             /* Profil incomplet → compléter */
             if (!data.interests || data.interests.length === 0) {
               state.pendingUser = user;
@@ -1140,10 +1154,13 @@
         /* Posts des users suivis — nécessite un index Firestore */
         /* BUG-06 fix: .in() avec tableau vide crash Firestore → fallback global */
         var followList = fd.followingList && fd.followingList.length > 0 ? fd.followingList : null;
-        if (followList) {
-          q = q.where('authorUid', 'in', followList.slice(0,10)).orderBy('createdAt', 'desc');
+        if (followList && followList.length > 0) {
+          /* Firestore .in() max 30 éléments - on prend les 30 plus récents */
+          var chunk = followList.slice(0, 30);
+          q = q.where('authorUid', 'in', chunk).orderBy('createdAt', 'desc');
         } else {
-          q = q.orderBy('createdAt', 'desc');
+          /* Pas encore d'abonnements → fallback feed global */
+          q = SIS.db.collection('posts').where('hidden','==',false).orderBy('createdAt', 'desc');
         }
       } else {
         q = q.orderBy('createdAt', 'desc');
@@ -1178,7 +1195,18 @@
           if (q('feed-loader')) q('feed-loader').style.display = 'none';
 
           if (snap.empty && reset) {
-            q('feed-empty').style.display = 'block';
+            var emptyEl = q('feed-empty');
+            var emptyEl = q('feed-empty');
+            if (emptyEl) {
+              emptyEl.style.display = 'block';
+              var emptyHtml = document.createElement('div');
+              emptyHtml.innerHTML = '<div class="feed-empty-icon">&#10024;</div>';
+              var et = document.createElement('div'); et.className='feed-empty-title'; et.textContent='Sois le premier a publier !'; emptyHtml.appendChild(et);
+              var es = document.createElement('div'); es.className='feed-empty-sub'; es.textContent='SIS est tout neuf. Publie le premier post !'; emptyHtml.appendChild(es);
+              var eb = document.createElement('button'); eb.className='btn-primary'; eb.style.cssText='margin:16px auto;display:block;padding:12px 24px;width:auto'; eb.textContent='Publier '; emptyHtml.appendChild(eb);
+              eb.addEventListener('click', function(){ var pb=document.querySelector('.bnav-post-btn'); if(pb) pb.click(); });
+              emptyEl.innerHTML=''; emptyEl.appendChild(emptyHtml);
+            }
             return;
           }
 
@@ -1914,7 +1942,10 @@
           qsa('.tab-item').forEach(function(t){ t.classList.remove('active'); });
           tab.classList.add('active');
           fd.currentTab = tab.getAttribute('data-tab');
+          /* Nettoyer listener stories avant reload */
+          if (fd.unsubStories) { fd.unsubStories(); fd.unsubStories = null; }
           loadPosts(true);
+          loadStories();
         });
       });
 
@@ -2596,8 +2627,9 @@
       showView('chat-room');
       loadMessages(roomId, data);
 
-      /* Admin check */
-      if (user && user.email === 'gbaguidiexauce@gmail.com') {
+      /* Admin check - via Firestore pour éviter le hardcode pur */
+      if (user && (user.email === 'gbaguidiexauce@gmail.com' || 
+          (window._sisAdminVerified && window._sisAdminVerified === user.uid))) {
         var adminPanel = document.createElement('button');
         adminPanel.className = 'topbar-btn';
         adminPanel.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
@@ -2775,7 +2807,7 @@
           msgData.replyTo = { id: cd.replyTo.id, pseudo: cd.replyTo.pseudo, text: cd.replyTo.text };
         }
 
-        /* Chiffrement AES pour DMs */
+        /* Chiffrement AES pour DMs - texte chiffré, médias flaggués */
         var textPromise;
         if (room.type === 'dm' && text) {
           var secret = SIS.crypto.roomSecret(user.uid, room.otherUid || '');
@@ -3563,6 +3595,15 @@
     bindEvents();
     loadSalons();
     SIS.injectBottomNav('chat');
+
+    /* FIX: Clavier Android */
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        var nav = document.getElementById('bnav');
+        if (!nav) return;
+        nav.style.display = window.visualViewport.height < window.innerHeight * 0.75 ? 'none' : 'flex';
+      });
+    }
   }
 
   /* ══════════════════════════════════════════════════════════
