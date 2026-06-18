@@ -285,7 +285,14 @@
           quality:   0.82,
           format:    'image/webp' /* WebP = meilleur ratio qualité/poids */
         };
-        var opts = Object.assign({}, defaults, options || {});
+        /* BUGFIX: fusionner les defaults DANS l'objet "options" reçu (et non dans une copie)
+           pour que l'appelant (processAndUpload) puisse lire le format réellement
+           utilisé une fois la compression lancée (ex: webp non supporté -> jpeg) */
+        var opts = options || {};
+        if (opts.maxWidth  == null) opts.maxWidth  = defaults.maxWidth;
+        if (opts.maxHeight == null) opts.maxHeight = defaults.maxHeight;
+        if (opts.quality   == null) opts.quality   = defaults.quality;
+        if (opts.format    == null) opts.format    = defaults.format;
 
         /* Vérifier support WebP, fallback JPEG */
         var canvas = document.createElement('canvas');
@@ -475,17 +482,25 @@
 
   /* Attacher tous les click handlers en attente */
   SIS.bindAvatarClicks = function (container) {
-    if (!SIS._pendingAvatarClicks) return;
-    var clicks = SIS._pendingAvatarClicks.splice(0);
-    clicks.forEach(function (item) {
-      var els = (container || document).querySelectorAll('.av-wrap.clickable[data-pseudo="' + item.pseudo + '"]');
-      els.forEach(function (el) {
-        el.addEventListener('click', function (e) {
-          e.stopPropagation();
-          item.fn(item.pseudo, e);
+    if (!SIS._pendingAvatarClicks || !SIS._pendingAvatarClicks.length) return;
+    var scope = container || document;
+    var remaining = [];
+    SIS._pendingAvatarClicks.forEach(function (item) {
+      var els = scope.querySelectorAll('.av-wrap.clickable[data-pseudo="' + item.pseudo + '"]');
+      if (els.length) {
+        els.forEach(function (el) {
+          el.addEventListener('click', function (e) {
+            e.stopPropagation();
+            item.fn(item.pseudo, e);
+          });
         });
-      });
+      } else {
+        /* Pas trouvé dans ce container : on le garde pour un futur bindAvatarClicks
+           (ex: appelé depuis le feed) au lieu de le perdre définitivement */
+        remaining.push(item);
+      }
     });
+    SIS._pendingAvatarClicks = remaining;
   };
 
   /* ──────────────────────────────────────────────────────────
@@ -773,9 +788,17 @@
       SIS.notifs.stop();
       /* Présence offline */
       if (SIS.user) {
-        SIS.db.collection('users').doc(SIS.user.uid)
+        var uid = SIS.user.uid;
+        SIS.db.collection('users').doc(uid)
           .update({ lastSeen: firebase.firestore.FieldValue.serverTimestamp() })
           .catch(function () {});
+        /* FIX: on ne mettait jamais online:false explicitement — l'utilisateur restait
+           "en ligne" dans presence/{uid} jusqu'à la fermeture naturelle de l'onglet */
+        if (SIS.rtdb) {
+          SIS.rtdb.ref('presence/' + uid)
+            .set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP })
+            .catch(function () {});
+        }
       }
       return firebase.auth().signOut();
     }
@@ -793,18 +816,45 @@
     function updateProfile(uid, data) {
       /* Sanitize les champs texte */
       if (data.bio)   data.bio   = data.bio.substring(0, 160);
-      if (data.pseudo) data.pseudo = data.pseudo.replace(/[^a-zA-Z0-9_\-\.]/g, '').substring(0, 24);
       data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+      /* FIX: contrairement à register(), aucune vérification d'unicité n'était faite
+         ici -> deux comptes pouvaient finir avec le même pseudo, ce qui casse les
+         liens anonymes, les DM par pseudo et le popup profil (tous basés sur pseudo). */
+      if (data.pseudo) {
+        data.pseudo = data.pseudo.replace(/[^a-zA-Z0-9_\-\.]/g, '').substring(0, 24);
+        if (data.pseudo.length < 3) {
+          return Promise.reject(new Error('Pseudo trop court (min 3 caractères)'));
+        }
+        return SIS.db.collection('users')
+          .where('pseudo', '==', data.pseudo)
+          .limit(1)
+          .get()
+          .then(function (snap) {
+            if (!snap.empty && snap.docs[0].id !== uid) {
+              throw new Error('Ce pseudo est déjà pris');
+            }
+            return SIS.db.collection('users').doc(uid).update(data);
+          });
+      }
+
       return SIS.db.collection('users').doc(uid).update(data);
     }
 
     /* Présence en ligne (RTDB pour la rapidité) */
     function setPresence(uid) {
-      /* FIX: ne pas écraser si déjà en ligne dans un autre onglet */
-      if (!uid) return;
+      if (!uid || !SIS.rtdb) return;
       var ref = SIS.rtdb.ref('presence/' + uid);
-      ref.set({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
-      ref.onDisconnect().set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+      /* FIX: ré-enregistrer onDisconnect à CHAQUE (re)connexion. Avant, il n'était posé
+         qu'une fois ; après une coupure réseau puis reconnexion (courant en mobile),
+         le hook n'était plus actif et l'utilisateur restait "fantôme" en ligne. */
+      SIS.rtdb.ref('.info/connected').on('value', function (snap) {
+        if (snap.val() === false) return;
+        ref.onDisconnect().set({ online: false, lastSeen: firebase.database.ServerValue.TIMESTAMP })
+          .then(function () {
+            ref.set({ online: true, lastSeen: firebase.database.ServerValue.TIMESTAMP });
+          });
+      });
     }
 
     /* Vérifier si email est confirmé */
@@ -979,8 +1029,9 @@
         'linear-gradient(135deg,#22d47a,#8B5CF6)'
       ];
       var hash = 0;
-      for (var i = 0; i < (pseudo || '').length; i++) {
-        hash = pseudo.charCodeAt(i) + ((hash << 5) - hash);
+      var safePseudo = pseudo || '';
+      for (var i = 0; i < safePseudo.length; i++) {
+        hash = safePseudo.charCodeAt(i) + ((hash << 5) - hash);
       }
       return gradients[Math.abs(hash) % gradients.length];
     }
@@ -1129,7 +1180,7 @@
       }
     ];
 
-    var lang = SIS.utils.detectLang();
+    var lang = SIS.i18n.get();
 
     var html = '<nav class="bnav" id="bnav">';
 
@@ -1409,6 +1460,65 @@
   })();
 
   /* ──────────────────────────────────────────────────────────
+     15B. GRAPHE SOCIAL — Suivre / Ne plus suivre
+     BUGFIX: cette logique n'existait nulle part dans le fichier ;
+     les boutons "Suivre" du popup profil étaient donc inertes.
+  ────────────────────────────────────────────────────────── */
+  SIS.social = (function () {
+
+    function relId(followerUid, targetUid) {
+      return followerUid + '_' + targetUid;
+    }
+
+    /* Vérifie si l'utilisateur connecté suit déjà targetUid */
+    function isFollowing(targetUid) {
+      if (!SIS.user || !targetUid) return Promise.resolve(false);
+      return SIS.db.collection('follows').doc(relId(SIS.user.uid, targetUid)).get()
+        .then(function (doc) { return doc.exists; });
+    }
+
+    /* Bascule suivre/ne plus suivre + tient les compteurs followers/following à jour */
+    function toggleFollow(targetUid, isCurrentlyFollowing) {
+      if (!SIS.user) return Promise.reject(new Error('Non connecté'));
+      if (!targetUid || targetUid === SIS.user.uid) {
+        return Promise.reject(new Error('Action invalide'));
+      }
+      if (!SIS.security.rateLimit('follow', 30)) {
+        return Promise.reject(new Error('Trop d\'actions, réessaie un peu plus tard'));
+      }
+
+      var followerUid = SIS.user.uid;
+      var relRef    = SIS.db.collection('follows').doc(relId(followerUid, targetUid));
+      var meRef     = SIS.db.collection('users').doc(followerUid);
+      var targetRef = SIS.db.collection('users').doc(targetUid);
+      var batch     = SIS.db.batch();
+
+      if (isCurrentlyFollowing) {
+        batch.delete(relRef);
+        batch.update(meRef,     { following: firebase.firestore.FieldValue.increment(-1) });
+        batch.update(targetRef, { followers: firebase.firestore.FieldValue.increment(-1) });
+      } else {
+        batch.set(relRef, {
+          followerUid: followerUid,
+          targetUid:   targetUid,
+          createdAt:   firebase.firestore.FieldValue.serverTimestamp()
+        });
+        batch.update(meRef,     { following: firebase.firestore.FieldValue.increment(1) });
+        batch.update(targetRef, { followers: firebase.firestore.FieldValue.increment(1) });
+      }
+
+      return batch.commit().then(function () {
+        if (!isCurrentlyFollowing) {
+          SIS.notifs.push(targetUid, SIS.notifs.TYPES.FOLLOW, { fromUid: followerUid });
+        }
+        return !isCurrentlyFollowing; /* nouvel état isFollowing */
+      });
+    }
+
+    return { isFollowing: isFollowing, toggleFollow: toggleFollow };
+  })();
+
+  /* ──────────────────────────────────────────────────────────
      16. POPUP PROFIL — Logique universelle
   ────────────────────────────────────────────────────────── */
   SIS.profilePopup = (function () {
@@ -1422,11 +1532,36 @@
       if (!options._loaded) {
         SIS.db.collection('users').where('pseudo', '==', pseudo).limit(1).get()
           .then(function (snap) {
-            if (!snap.empty) {
-              var data = snap.docs[0].data();
-              show(pseudo, Object.assign({ _loaded: true }, data, options));
+            /* FIX: utilisateur introuvable -> avant, rien ne se passait et le squelette restait affiché */
+            if (snap.empty) {
+              close();
+              SIS.toast.error(SIS.i18n.t('error_network'));
+              return;
             }
+            var data = snap.docs[0].data();
+            var merged = Object.assign({ _loaded: true }, data, options);
+
+            if (typeof merged.isFollowing === 'boolean') {
+              show(pseudo, merged);
+              return;
+            }
+            /* L'appelant n'a pas précisé isFollowing : on le détermine nous-même */
+            SIS.social.isFollowing(data.uid)
+              .then(function (following) {
+                merged.isFollowing = following;
+                show(pseudo, merged);
+              })
+              .catch(function () {
+                merged.isFollowing = false;
+                show(pseudo, merged);
+              });
+          })
+          /* FIX: aucun .catch() avant -> une erreur réseau laissait le squelette affiché pour toujours */
+          .catch(function () {
+            close();
+            SIS.toast.error(SIS.i18n.t('error_network'));
           });
+
         /* Afficher un squelette en attendant */
         _render(pseudo, { _loading: true });
         return;
@@ -1438,12 +1573,12 @@
     function _render(pseudo, opts) {
       close(); /* Fermer si déjà ouvert */
 
-      var lang = SIS.i18n.get();
       var anonLink = SIS.utils.anonLink(pseudo);
       var gradient = SIS.utils.pseudoToGradient(pseudo);
 
-      /* isMe: comparaison simple avec le pseudo du user connecté */
-      var isMe = SIS.user && opts.pseudo === pseudo && SIS.user.uid === opts.uid;
+      /* FIX: isMe était calculé mais jamais utilisé -> le popup montrait "Suivre" /
+         "Message" / "Message anonyme" même sur son PROPRE profil. */
+      var isMe = !!(SIS.user && opts.uid && SIS.user.uid === opts.uid);
 
       var overlay = document.createElement('div');
       overlay.className = 'profile-popup-overlay';
@@ -1468,7 +1603,7 @@
                   gradient:  gradient
                 })
             ) +
-            (!opts._loading
+            (!opts._loading && !isMe
               ? '<button class="btn-primary btn-sm" id="pp-follow-btn" style="width:auto">' +
                   (opts.isFollowing
                     ? SIS.i18n.t('unfollow')
@@ -1496,13 +1631,15 @@
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" style="flex-shrink:0;cursor:pointer" id="pp-copy-link"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
           '</div>' +
           '<div class="pp-actions">' +
-            '<button class="pp-btn-dm" id="pp-dm-btn">💬 Message</button>' +
-            '<button class="pp-btn-follow ' + (opts.isFollowing ? 'active' : '') + '" id="pp-follow-btn2">' +
-              (opts.isFollowing ? '✓ ' + SIS.i18n.t('unfollow') : '➕ ' + SIS.i18n.t('follow')) +
-            '</button>' +
-            '<button class="pp-btn-anon" id="pp-anon-btn" title="Envoyer message anonyme">' +
-              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
-            '</button>' +
+            (isMe ? '' :
+              '<button class="pp-btn-dm" id="pp-dm-btn">💬 Message</button>' +
+              '<button class="pp-btn-follow ' + (opts.isFollowing ? 'active' : '') + '" id="pp-follow-btn2">' +
+                (opts.isFollowing ? '✓ ' + SIS.i18n.t('unfollow') : '➕ ' + SIS.i18n.t('follow')) +
+              '</button>' +
+              '<button class="pp-btn-anon" id="pp-anon-btn" title="Envoyer message anonyme">' +
+                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
+              '</button>'
+            ) +
           '</div>' +
         '</div>';
 
@@ -1538,6 +1675,28 @@
           window.open(anonLink, '_blank');
         });
       }
+
+      /* FIX: les boutons Suivre/Ne plus suivre n'avaient aucune logique attachée */
+      var followHandler = function () {
+        if (isMe || !opts.uid) return;
+        if (!SIS.user) { SIS.toast.info(SIS.i18n.t('welcome'), SIS.i18n.t('sign_in')); return; }
+        var wasFollowing = !!opts.isFollowing;
+        SIS.social.toggleFollow(opts.uid, wasFollowing)
+          .then(function (nowFollowing) {
+            opts.isFollowing = nowFollowing;
+            opts.followers = Math.max(0, (opts.followers || 0) + (nowFollowing ? 1 : -1));
+            _render(pseudo, opts); /* re-rendu pour resynchroniser les 2 boutons + le compteur */
+          })
+          .catch(function (err) {
+            SIS.toast.error(SIS.i18n.t('error_network'), (err && err.message) || '');
+          });
+      };
+
+      var followBtn1 = overlay.querySelector('#pp-follow-btn');
+      if (followBtn1) followBtn1.addEventListener('click', followHandler);
+
+      var followBtn2 = overlay.querySelector('#pp-follow-btn2');
+      if (followBtn2) followBtn2.addEventListener('click', followHandler);
 
       SIS.bindAvatarClicks(overlay);
     }
