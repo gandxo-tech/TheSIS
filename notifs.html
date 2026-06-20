@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07080d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>SIS — Notifications</title>
+  <link rel="icon" href="https://i.ibb.co/xt8mxn0H/favicon-96x96.png">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="global.css">
+  <link rel="stylesheet" href="pages.css">
+</head>
+<body data-page="notifs">
+
+<div class="page-topbar">
+  <div class="page-topbar-title">Notifications</div>
+  <button class="topbar-btn" id="btn-mark-all-read">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </button>
+</div>
+
+<!-- Filtres -->
+<div class="notifs-filters" id="notifs-filters">
+  <div class="nfilter active" data-type="">Tout</div>
+  <div class="nfilter" data-type="like">❤️ Likes</div>
+  <div class="nfilter" data-type="follow">👤 Follows</div>
+  <div class="nfilter" data-type="comment">💬 Commentaires</div>
+  <div class="nfilter" data-type="anon">🔒 Anonymes</div>
+  <div class="nfilter" data-type="mention">@ Mentions</div>
+</div>
+
+<!-- Liste -->
+<div class="notifs-list" id="notifs-list">
+  <!-- Skeleton -->
+  <div class="notif-skeleton"><div class="skeleton" style="width:36px;height:36px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:12px;width:70%"></div><div class="skeleton" style="height:10px;width:50%"></div></div></div>
+  <div class="notif-skeleton"><div class="skeleton" style="width:36px;height:36px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:12px;width:60%"></div><div class="skeleton" style="height:10px;width:40%"></div></div></div>
+  <div class="notif-skeleton"><div class="skeleton" style="width:36px;height:36px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:12px;width:75%"></div><div class="skeleton" style="height:10px;width:45%"></div></div></div>
+</div>
+
+<div id="notifs-empty" class="page-empty" style="display:none">
+  <div class="page-empty-icon">🔔</div>
+  <div class="page-empty-title">Aucune notification</div>
+  <div class="page-empty-sub">Tu seras notifié dès qu'il se passera quelque chose.</div>
+</div>
+
+<div id="toast-container"></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

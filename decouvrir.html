@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07080d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>SIS — Découvrir confessions, tendances et profils</title>
+  <meta name="description" content="Explore les confessions et hashtags tendances sur SIS : drama, vérités, humour et plus. Découvre la communauté avant de rejoindre SIS.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://the-sis.vercel.app/decouvrir.html">
+
+  <!-- SEO/Partage : absents auparavant -> un lien decouvrir.html partagé sur
+       les réseaux n'affichait aucun aperçu (ni titre, ni image). -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SIS — Say It Safely">
+  <meta property="og:title" content="SIS — Découvrir confessions, tendances et profils">
+  <meta property="og:description" content="Explore les confessions et hashtags tendances sur SIS : drama, vérités, humour et plus.">
+  <meta property="og:image" content="https://i.ibb.co/DD2rZ1XL/icon-512.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="Logo SIS — Say It Safely">
+  <meta property="og:url" content="https://the-sis.vercel.app/decouvrir.html">
+  <meta property="og:locale" content="fr_FR">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="SIS — Découvrir confessions, tendances et profils">
+  <meta name="twitter:description" content="Explore les confessions et hashtags tendances sur SIS : drama, vérités, humour et plus.">
+  <meta name="twitter:image" content="https://i.ibb.co/DD2rZ1XL/icon-512.png">
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="https://i.ibb.co/xt8mxn0H/favicon-96x96.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="global.css">
+  <link rel="stylesheet" href="pages.css">
+</head>
+<body data-page="decouvrir">
+
+<div class="page-topbar">
+  <h1 class="page-topbar-title">Découvrir</h1>
+  <a class="topbar-btn" href="notifs.html" id="btn-notifs-bell" title="Notifications">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span class="topbar-notif-badge" style="display:none">0</span>
+  </a>
+</div>
+
+<!-- Barre de recherche -->
+<div class="disc-search-wrap">
+  <div class="search-bar" id="disc-search-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+    <input type="text" id="disc-search-input" placeholder="Personnes, hashtags, posts…" autocomplete="off">
+    <button class="disc-search-clear" id="disc-search-clear" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- Résultats de recherche -->
+<div id="search-results" style="display:none">
+  <div class="disc-section-title" style="padding:10px 14px 4px;font-size:11px;color:var(--muted)">Résultats</div>
+  <div id="search-results-list"></div>
+</div>
+
+<!-- Contenu découverte (masqué si recherche active) -->
+<div id="disc-content">
+
+  <!-- Trending hashtags -->
+  <div class="disc-section">
+    <div class="disc-section-title">🔥 Trending</div>
+    <div class="disc-tags-wrap" id="trending-tags">
+      <div class="skeleton" style="height:32px;width:100px;border-radius:999px;display:inline-block;margin-right:6px"></div>
+      <div class="skeleton" style="height:32px;width:80px;border-radius:999px;display:inline-block;margin-right:6px"></div>
+      <div class="skeleton" style="height:32px;width:110px;border-radius:999px;display:inline-block"></div>
+    </div>
+  </div>
+
+  <!-- Personnes suggérées -->
+  <div class="disc-section">
+    <div class="disc-section-title">👥 Suggestions</div>
+    <div id="suggested-users">
+      <div class="notif-skeleton"><div class="skeleton" style="width:38px;height:38px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:55%"></div><div class="skeleton" style="height:11px;width:40%"></div></div></div>
+      <div class="notif-skeleton"><div class="skeleton" style="width:38px;height:38px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:65%"></div><div class="skeleton" style="height:11px;width:35%"></div></div></div>
+    </div>
+  </div>
+
+  <!-- Posts populaires -->
+  <div class="disc-section">
+    <div class="disc-section-title">⚡ Posts populaires</div>
+    <div id="popular-posts"></div>
+  </div>
+
+</div>
+
+<div id="toast-container"></div>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
