@@ -124,10 +124,17 @@
   --z-base:    1;
   --z-sticky:  50;
   --z-nav:     100;
-  --z-sheet:   200;
-  --z-popup:   300;
-  --z-pacte:   400;
-  --z-toast:   500;
+  /* FIX BUG CONFIRMÉ : le bottom nav (.bnav) est en z-index 9999, mais TOUS
+     les overlays/sheets/popups/toasts étaient à 200-500 — bien plus bas !
+     Le nav passait donc PAR-DESSUS le bas de n'importe quel sheet ancré en
+     bas d'écran (ex: la popup profil), cachant ce qui s'y trouvait — comme
+     le bouton "💬 Message" pour démarrer un DM, ou tout autre bouton
+     d'action positionné en bas. Toutes ces valeurs sont maintenant
+     supérieures à 9999, donc toujours au-dessus du nav. */
+  --z-sheet:   10200;
+  --z-popup:   10300;
+  --z-pacte:   10400;
+  --z-toast:   10500;
 }
 
 /* ─────────────────────────────────────────
