@@ -1,14 +1,14 @@
+# SIS — Say It Safely
+# Créé par GBAGUIDI Ahotondji Exaucé
+
 User-agent: *
 Allow: /
 Allow: /auth.html
-Allow: /decouvrir.html
-
-# Pages privées / personnalisées (contenu différent par utilisateur,
-# redirection systématique si non connecté) : aucun intérêt SEO,
-# on évite de gâcher le budget de crawl dessus.
 Disallow: /feed.html
 Disallow: /chat.html
 Disallow: /profil.html
-Disallow: /notifs.html
+# Pages privées/authentifiées : jamais indexées (confessions anonymes,
+# messages privés, données de profil). Voir aussi les balises
+# <meta name="robots" content="noindex"> sur chacune de ces pages.
 
 Sitemap: https://the-sis.vercel.app/sitemap.xml
