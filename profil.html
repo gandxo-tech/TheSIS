@@ -304,10 +304,25 @@
          ici, dans Profil. -->
     <div class="settings-section">
       <div class="settings-label">Confidentialité</div>
-      <a class="settings-row" id="btn-anon-messages" href="https://sis-say-it-safely-pi.vercel.app/voir.html" style="text-decoration:none;color:var(--text)">
+      <a class="settings-row" id="btn-anon-messages" href="https://the-sis.vercel.app/voir.html" style="text-decoration:none;color:var(--text)">
         <span style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           Messages anonymes
+        </span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
+    </div>
+
+    <!-- FIX BUG CONFIRMÉ : le panel admin (stats, annonces, revue des
+         demandes de certification) n'était accessible qu'en ouvrant un
+         salon de chat au hasard d'abord — aucun accès direct nulle part.
+         Visible uniquement pour le compte admin (contrôlé en JS). -->
+    <div class="settings-section" id="settings-admin-section" style="display:none">
+      <div class="settings-label">Administration</div>
+      <a class="settings-row" id="btn-open-admin" href="chat.html?admin=1" style="text-decoration:none;color:var(--text)">
+        <span style="display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Panel admin · Certifications
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       </a>

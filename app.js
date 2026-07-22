@@ -980,11 +980,8 @@
       noMore:        false,
       unsubPosts:    null,
       unsubStories:  null,
-      postType:      'confession',
+      postType:      'csdpm',
       identity:      'anon',
-      battleDur:     86400,
-      burnViews:     50,
-      burnTimer:     3600,
       storyBg:       'linear-gradient(135deg,#5B8EF4,#8B5CF6)',
       mediaFile:     null,
       mediaGifUrl:   null,
@@ -1012,8 +1009,8 @@
       var d   = doc.data();
       var id  = doc.id;
       var div = document.createElement('div');
-      var extra = d.type === 'whisper' ? ' whisper' : (d.type === 'burn' ? ' burn' : '');
-      div.className = 'post-card' + extra;
+      var typeCardCls = { csdpm:'type-csdpm-card', media:'type-media-card', poll:'type-poll-card' };
+      div.className = 'post-card ' + (typeCardCls[d.type] || 'type-csdpm-card');
       div.setAttribute('data-id', id);
 
       var certified = d.authorCertified || false;
@@ -1038,16 +1035,12 @@
         ? '<svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0"><defs><linearGradient id="pcg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5B8EF4"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="url(#pcg)"/></svg>'
         : '';
 
-      /* Type badge */
-      var typeCls = {
-        confession:'type-confession',csdpm:'type-csdpm',whisper:'type-whisper',
-        battle:'type-battle',burn:'type-burn',media:'type-media',
-        poll:'type-poll',thread:'type-thread'
-      };
-      var typeLabel = {
-        confession:'💭 Confession',csdpm:'🤐 CSDPM',whisper:'🤫 Whisper',
-        battle:'⚡ Battle',burn:'🔥 Burn',media:'📷 Media',poll:'📊 Poll',thread:'🧵 Thread'
-      };
+      /* Type badge : seuls CSDPM / Sondage / Media sont créables désormais.
+         Le dictionnaire garde un repli 'csdpm' pour ne pas casser l'affichage
+         d'anciens posts d'un type retiré (confession/whisper/battle/burn/
+         thread) qui existeraient encore en base. */
+      var typeCls = { csdpm:'type-csdpm', media:'type-media', poll:'type-poll' };
+      var typeLabel = { csdpm:'🤐 CSDPM', media:'📷 Media', poll:'📊 Sondage' };
 
       var header =
         '<div class="post-header">' +
@@ -1059,7 +1052,7 @@
               SIS.utils.timeAgo(d.createdAt) +
             '</div>' +
           '</div>' +
-          '<span class="post-type ' + (typeCls[d.type] || 'type-confession') + '"' + (d.type==='csdpm' ? ' title="Ça se dit pas, mais…"' : '') + '>' +
+          '<span class="post-type ' + (typeCls[d.type] || 'type-csdpm') + '"' + (d.type==='csdpm' ? ' title="Ça se dit pas, mais…"' : '') + '>' +
             (typeLabel[d.type] || d.type) +
           '</span>' +
           '<button class="post-more-btn" data-id="' + id + '">' +
@@ -1070,38 +1063,7 @@
       var body = '';
 
       /* Corps selon type */
-      if (d.type === 'confession' || d.type === 'csdpm' || d.type === 'whisper') {
-        body = '<div class="post-body">' + SIS.utils.parseText(d.text || '') + '</div>';
-
-      } else if (d.type === 'burn') {
-        body =
-          '<div class="burn-meta-row">' +
-            '<div class="burn-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-              burnTimeLeft(d.burnExpiresAt) +
-            '</div>' +
-            '<div class="burn-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>' +
-              (d.viewCount || 0) + '/' + (d.burnMaxViews || 100) + ' vues' +
-            '</div>' +
-          '</div>' +
-          '<div class="post-body">' + SIS.utils.parseText(d.text || '') + '</div>';
-
-      } else if (d.type === 'battle') {
-        var totalVotes = (d.options || []).reduce(function(s,o){ return s + (o.votes||0); }, 0);
-        var optsHtml = (d.options || []).map(function(opt, i) {
-          var pct = totalVotes > 0 ? Math.round((opt.votes||0)/totalVotes*100) : 0;
-          var isLead = (opt.votes||0) === Math.max.apply(null,(d.options||[]).map(function(o){return o.votes||0;}));
-          return '<div class="battle-opt' + (isLead?' leading':'') + '" data-idx="' + i + '" data-post="' + id + '">' +
-            '<div class="battle-bar-fill" style="width:' + pct + '%"></div>' +
-            '<div class="battle-opt-row"><span style="position:relative">' + SIS.utils.escHtml(opt.text||'') + '</span>' +
-            '<span class="battle-pct">' + pct + '%</span></div>' +
-            '</div>';
-        }).join('');
-        body =
-          '<div class="post-body">' + SIS.utils.parseText(d.question||d.text||'') + '</div>' +
-          '<div class="battle-opts">' + optsHtml + '</div>' +
-          '<div class="battle-footer">' + SIS.utils.formatCount(totalVotes) + ' votes</div>';
-
-      } else if (d.type === 'poll') {
+      if (d.type === 'poll') {
         var totalPollVotes = (d.options || []).reduce(function(s,o){ return s+(o.votes||0); }, 0);
         var pollHtml = (d.options || []).map(function(opt, i) {
           var pct = totalPollVotes > 0 ? Math.round((opt.votes||0)/totalPollVotes*100) : 0;
@@ -1124,12 +1086,9 @@
             : '';
         body = caption + mediaEl;
 
-      } else if (d.type === 'thread') {
-        var blocksHtml = (d.blocks || []).map(function(b, i) {
-          return '<div class="thread-block"><div class="thread-block-num">' + (i+1) + '/' + d.blocks.length + '</div>' +
-            SIS.utils.parseText(b) + '</div>';
-        }).join('');
-        body = '<div class="thread-blocks">' + blocksHtml + '</div>';
+      } else {
+        /* csdpm, et repli générique pour tout ancien post d'un type retiré */
+        body = '<div class="post-body">' + SIS.utils.parseText(d.text || d.question || '') + '</div>';
       }
 
       /* Echo preview */
@@ -1177,16 +1136,6 @@
       div.innerHTML = header + echoHtml + body + reactionsHtml + actions;
       SIS.bindAvatarClicks(div);
       return div;
-    }
-
-    /* Temps restant Burn */
-    function burnTimeLeft(ts) {
-      if (!ts) return '?';
-      var exp = ts.toDate ? ts.toDate() : new Date(ts);
-      var diff = Math.max(0, Math.floor((exp - Date.now()) / 1000));
-      if (diff < 3600)  return Math.floor(diff/60) + 'min';
-      if (diff < 86400) return Math.floor(diff/3600) + 'h';
-      return Math.floor(diff/86400) + 'j';
     }
 
     /* ── CENTRES D'INTÉRÊT (pour la pondération de l'algorithme) ── */
@@ -1528,13 +1477,12 @@
     }
 
     function resetComposer() {
-      fd.postType   = 'confession';
+      fd.postType   = 'csdpm';
       fd.identity   = 'anon';
       fd.mediaFile  = null;
       fd.mediaGifUrl= null;
-      fd.threadBlocks = 1;
 
-      qsa('.ctype').forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-type')==='confession'); });
+      qsa('.ctype').forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-type')==='csdpm'); });
       qsa('.identity-opt', q('post-composer')).forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-identity')==='anon'); });
       qsa('.composer-field').forEach(function(f){ f.style.display='none'; });
       var tf = q('field-text'); if(tf) tf.style.display='block';
@@ -1547,14 +1495,10 @@
       fd.postType = type;
       qsa('.ctype').forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-type')===type); });
 
-      var allFields = ['field-text','field-battle','field-poll','field-burn','field-media','field-thread'];
+      var allFields = ['field-text','field-poll','field-media'];
       allFields.forEach(function(f){ var e=q(f); if(e) e.style.display='none'; });
 
-      var map = {
-        confession:'field-text', csdpm:'field-text', whisper:'field-text',
-        battle:'field-battle', poll:'field-poll', burn:'field-burn',
-        media:'field-media', thread:'field-thread'
-      };
+      var map = { csdpm:'field-text', poll:'field-poll', media:'field-media' };
       var target = map[type] || 'field-text';
       var te = q(target); if(te) te.style.display='block';
 
@@ -1565,15 +1509,8 @@
       var ready = false;
       var type = fd.postType;
 
-      if (type==='confession'||type==='csdpm'||type==='whisper') {
+      if (type==='csdpm') {
         ready = (q('post-text').value.trim().length > 0);
-      } else if (type==='burn') {
-        ready = (q('burn-text') && q('burn-text').value.trim().length > 0);
-      } else if (type==='battle') {
-        var bq = q('battle-question');
-        var bopts = qsa('.battle-opt-input');
-        ready = bq && bq.value.trim().length > 0 &&
-          bopts.length >= 2 && bopts.every(function(o){ return o.value.trim().length>0; });
       } else if (type==='poll') {
         var pq = q('poll-question');
         var popts = qsa('.poll-opt-input');
@@ -1581,9 +1518,6 @@
           popts.length >= 2 && popts.every(function(o){ return o.value.trim().length>0; });
       } else if (type==='media') {
         ready = fd.mediaFile !== null || fd.mediaGifUrl !== null;
-      } else if (type==='thread') {
-        var blocks = qsa('.thread-block-textarea');
-        ready = blocks.length > 0 && blocks[0].value.trim().length > 0;
       }
 
       var pub = q('btn-publish'); if(pub) pub.disabled = !ready;
@@ -1638,24 +1572,11 @@
       }
 
       /* Contenu selon type */
-      if (type==='confession'||type==='csdpm'||type==='whisper') {
+      if (type==='csdpm') {
         postData.text = q('post-text').value.trim();
-      } else if (type==='burn') {
-        postData.text = q('burn-text').value.trim();
-        postData.burnMaxViews = fd.burnViews;
-        postData.viewCount    = 0;
-        var burnExpiry = new Date(Date.now() + fd.burnTimer * 1000);
-        postData.burnExpiresAt = firebase.firestore.Timestamp.fromDate(burnExpiry);
-      } else if (type==='battle') {
-        postData.question = q('battle-question').value.trim();
-        postData.options  = qsa('.battle-opt-input').map(function(i){ return {text:i.value.trim(), votes:0}; });
-        postData.duration = fd.battleDur;
-        postData.endsAt   = firebase.firestore.Timestamp.fromDate(new Date(Date.now()+fd.battleDur*1000));
       } else if (type==='poll') {
         postData.question = q('poll-question').value.trim();
         postData.options  = qsa('.poll-opt-input').map(function(i){ return {text:i.value.trim(), votes:0}; });
-      } else if (type==='thread') {
-        postData.blocks = qsa('.thread-block-textarea').map(function(t){ return t.value.trim(); }).filter(Boolean);
       }
 
       /* Récupérer profil si besoin */
@@ -2117,18 +2038,6 @@
         }
       });
 
-      /* Ajouter option battle */
-      q('add-battle-opt') && q('add-battle-opt').addEventListener('click', function() {
-        var opts = qsa('.battle-opt-input');
-        if (opts.length >= 4) { SIS.toast.info('Maximum 4 options'); return; }
-        var inp = document.createElement('input');
-        inp.type = 'text'; inp.className = 'battle-opt-input';
-        inp.placeholder = 'Option ' + String.fromCharCode(65 + opts.length);
-        inp.maxLength = 80;
-        inp.addEventListener('input', checkPublishReady);
-        q('battle-options').appendChild(inp);
-      });
-
       /* Ajouter option poll */
       q('add-poll-opt') && q('add-poll-opt').addEventListener('click', function() {
         var opts = qsa('.poll-opt-input');
@@ -2139,45 +2048,6 @@
         inp.maxLength = 80;
         inp.addEventListener('input', checkPublishReady);
         q('poll-options').appendChild(inp);
-      });
-
-      /* Battle duration */
-      qsa('.dur-opt').forEach(function(o) {
-        o.addEventListener('click', function() {
-          qsa('.dur-opt').forEach(function(x){ x.classList.remove('active'); });
-          o.classList.add('active');
-          fd.battleDur = parseInt(o.getAttribute('data-dur'), 10);
-        });
-      });
-
-      /* Burn settings */
-      qsa('.burn-opt[data-views]').forEach(function(o) {
-        o.addEventListener('click', function() {
-          qsa('.burn-opt[data-views]').forEach(function(x){ x.classList.remove('active'); });
-          o.classList.add('active');
-          fd.burnViews = parseInt(o.getAttribute('data-views'), 10);
-        });
-      });
-      qsa('.burn-opt[data-timer]').forEach(function(o) {
-        o.addEventListener('click', function() {
-          qsa('.burn-opt[data-timer]').forEach(function(x){ x.classList.remove('active'); });
-          o.classList.add('active');
-          fd.burnTimer = parseInt(o.getAttribute('data-timer'), 10);
-        });
-      });
-
-      /* Thread blocs */
-      q('add-thread-block') && q('add-thread-block').addEventListener('click', function() {
-        var blocks = qsa('.thread-block-composer');
-        if (blocks.length >= 10) { SIS.toast.info('Maximum 10 blocs'); return; }
-        fd.threadBlocks++;
-        var block = document.createElement('div');
-        block.className = 'thread-block-composer';
-        block.innerHTML =
-          '<div class="thread-block-num-label">Bloc ' + fd.threadBlocks + '</div>' +
-          '<textarea class="thread-block-textarea" placeholder="Bloc ' + fd.threadBlocks + '…" maxlength="500" rows="3"></textarea>';
-        block.querySelector('textarea').addEventListener('input', checkPublishReady);
-        q('thread-blocks').appendChild(block);
       });
 
       /* Media tabs */
@@ -2310,10 +2180,6 @@
           return;
         }
 
-        /* Battle option vote */
-        var bOpt = target.closest('.battle-opt');
-        if (bOpt) { handleVote(bOpt.getAttribute('data-post'), parseInt(bOpt.getAttribute('data-idx'),10), 'battle'); return; }
-
         /* Poll option vote */
         var pOpt = target.closest('.poll-opt');
         if (pOpt) { handleVote(pOpt.getAttribute('data-post'), parseInt(pOpt.getAttribute('data-idx'),10), 'poll'); return; }
@@ -2375,22 +2241,9 @@
     }
 
     /* ── INIT THREAD BLOCKS ── */
-    function initThreadBlock() {
-      var blocks = q('thread-blocks');
-      if (!blocks) return;
-      var block = document.createElement('div');
-      block.className = 'thread-block-composer';
-      block.innerHTML =
-        '<div class="thread-block-num-label">Bloc 1</div>' +
-        '<textarea class="thread-block-textarea" placeholder="Bloc 1…" maxlength="500" rows="3"></textarea>';
-      block.querySelector('textarea').addEventListener('input', checkPublishReady);
-      blocks.appendChild(block);
-    }
-
     /* ── LANCER ── */
     bindEvents();
-    initThreadBlock();
-    switchComposerType('confession');
+    switchComposerType('csdpm');
     updateThemeIcon();
     /* On attend les centres d'intérêt avant le 1er rendu, sinon l'algo
        du fil global démarrerait sans pondération de pertinence. */
@@ -3794,6 +3647,7 @@
       if (!content) return;
 
       /* Stats globales */
+      content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Chargement…</div>';
       Promise.all([
         SIS.db.collection('users').get(),
         SIS.db.collection('posts').get(),
@@ -3880,6 +3734,9 @@
             }).then(function(){ SIS.toast.success('Annonce envoyée dans tous les salons !'); });
           });
         }
+      }).catch(function(err) {
+        console.error('[SIS] Admin panel load échoué:', err);
+        content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:13px">Erreur de chargement : ' + SIS.utils.escHtml(err.message||'inconnue') + '<br><span style="color:var(--muted)">Vérifie les règles Firestore pour ce compte admin.</span></div>';
       });
 
       showOverlay('admin-panel-overlay');
@@ -4138,10 +3995,19 @@
         });
       });
 
-      /* URL params : ouvrir DM ou salon direct */
+      /* URL params : ouvrir DM, salon, ou panel admin direct */
       var params = new URLSearchParams(window.location.search);
-      var dmPseudo = params.get('dm');
-      var roomId   = params.get('room');
+      var dmPseudo  = params.get('dm');
+      var roomId    = params.get('room');
+      var wantAdmin = params.get('admin');
+
+      /* FIX BUG CONFIRMÉ : le panel admin (et la revue de certification)
+         n'était accessible qu'en ouvrant d'abord un salon de chat au hasard
+         — le bouton n'existait nulle part ailleurs. Autant dire injoignable
+         en pratique. Point d'entrée direct et fiable maintenant. */
+      if (wantAdmin && user && user.email === 'gbaguidiexauce@gmail.com') {
+        openAdminPanel();
+      }
 
       if (dmPseudo) {
         /* Ouvrir DM avec ce pseudo */
@@ -4465,7 +4331,7 @@
       list.innerHTML =
         '<div style="text-align:center;padding:20px">' +
           '<p style="font-size:13px;color:var(--text2);margin-bottom:12px">Tes messages anonymes sont sur</p>' +
-          '<a href="https://sis-say-it-safely-pi.vercel.app/voir.html" ' +
+          '<a href="https://the-sis.vercel.app/voir.html" ' +
              'style="display:inline-block;padding:10px 20px;background:var(--grad);color:#fff;border-radius:var(--r-sm);font-weight:700;font-size:13px;text-decoration:none">' +
             '🔒 Voir mes messages anonymes' +
           '</a>' +
@@ -4742,7 +4608,10 @@
 
         hideO('certif-overlay');
         SIS.toast.success('Demande envoyée !', 'Traitement sous 24h');
-      }).catch(function(){ SIS.toast.error('Erreur envoi'); });
+      }).catch(function(err){
+        console.error('[SIS] Soumission certification échouée:', err);
+        SIS.toast.error('Erreur envoi', err.message || '');
+      });
     }
 
     /* ── SUPPRIMER COMPTE ── */
@@ -4756,6 +4625,12 @@
 
     /* ── BIND ── */
     function bindEvents() {
+      /* Panel admin visible uniquement pour le compte admin */
+      if (user && user.email === 'gbaguidiexauce@gmail.com') {
+        var adminSection = q('settings-admin-section');
+        if (adminSection) adminSection.style.display = 'block';
+      }
+
       /* Tabs */
       qsa('.ptab').forEach(function(tab) {
         tab.addEventListener('click', function() {
@@ -5015,7 +4890,7 @@
               if (d.fromUid) window.location.href = 'profil.html?uid=' + d.fromUid;
               else if (d.fromPseudo) SIS.profilePopup.show(d.fromPseudo);
             } else if (d.type === 'anon') {
-              window.location.href = 'https://sis-say-it-safely-pi.vercel.app/voir.html';
+              window.location.href = 'https://the-sis.vercel.app/voir.html';
             } else if (d.type === 'system') {
               if (d.link) window.location.href = d.link;
               else window.location.href = 'profil.html';

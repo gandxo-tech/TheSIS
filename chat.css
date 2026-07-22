@@ -1016,17 +1016,6 @@ body[data-page="chat"] {
   animation: slideUp 0.35s ease both;
 }
 
-/* ─── SONDAGE CHAT SHEET ─── */
-.poll-chat-sheet {
-  width: 100%;
-  max-width: 480px;
-  background: var(--surface);
-  border-radius: 22px 22px 0 0;
-  border-top: 1px solid var(--border);
-  padding: 14px 16px 34px;
-  animation: slideUp 0.35s ease both;
-}
-
 /* ─── ROOM INFO SHEET ─── */
 .room-info-sheet {
   width: 100%;

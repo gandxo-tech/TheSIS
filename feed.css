@@ -69,19 +69,46 @@ body[data-page="feed"] {
   white-space: nowrap;
 }
 
-/* FIX: aucune variante de couleur n'existait pour .type-X — tous les badges
-   de type (Confession/CSDPM/Whisper/Battle/Burn/Media/Poll/Thread) avaient
-   exactement le même style, rendant les types indistinguables au premier
-   coup d'œil. Chaque type a maintenant sa propre teinte, cohérente avec son
-   ambiance. */
-.type-confession { background: rgba(91,142,244,0.15)  !important; color: #5B8EF4 !important; }
-.type-csdpm      { background: rgba(245,158,11,0.15)   !important; color: #F59E0B !important; }
-.type-whisper     { background: rgba(139,92,246,0.15)  !important; color: #8B5CF6 !important; }
-.type-battle      { background: rgba(236,72,153,0.15)  !important; color: #EC4899 !important; }
-.type-burn        { background: rgba(240,79,90,0.15)   !important; color: #F04F5A !important; }
-.type-media       { background: rgba(20,184,166,0.15)  !important; color: #14B8A6 !important; }
-.type-poll        { background: rgba(34,197,94,0.15)   !important; color: #22C55E !important; }
-.type-thread      { background: rgba(99,102,241,0.15)  !important; color: #6366F1 !important; }
+/* TYPE BADGE — inspiré Magic UI / Uiverse.io : dégradé animé en boucle
+   douce plutôt qu'un simple aplat, pour un rendu plus premium. Continu
+   (pas seulement au survol) car sur mobile il n'y a pas de vrai hover.
+   Seuls CSDPM / Media / Sondage existent désormais. */
+.post-type {
+  font-size: 10px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  background-size: 220% 100%;
+  animation: badgeShimmer 4s ease-in-out infinite;
+}
+@keyframes badgeShimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .post-type { animation: none; }
+}
+
+.type-csdpm {
+  background-image: linear-gradient(110deg, rgba(245,158,11,0.14), rgba(245,158,11,0.30), rgba(245,158,11,0.14));
+  color: #F59E0B;
+  border-color: rgba(245,158,11,0.32);
+}
+.type-media {
+  background-image: linear-gradient(110deg, rgba(20,184,166,0.14), rgba(20,184,166,0.30), rgba(20,184,166,0.14));
+  color: #14B8A6;
+  border-color: rgba(20,184,166,0.32);
+}
+.type-poll {
+  background-image: linear-gradient(110deg, rgba(34,197,94,0.14), rgba(34,197,94,0.30), rgba(34,197,94,0.14));
+  color: #22C55E;
+  border-color: rgba(34,197,94,0.32);
+}
 
 /* CORPS DU POST — la partie la plus importante */
 .post-body {
@@ -129,29 +156,6 @@ body[data-page="feed"] {
   height: 18px !important;
 }
 
-/* BATTLE */
-.battle-opts { padding: 0 14px 14px !important; }
-.battle-opt { 
-  padding: 14px 13px !important; 
-  font-size: 15px !important; 
-  border-radius: 12px !important;
-  margin-bottom: 2px !important;
-}
-.battle-pct { font-size: 13px !important; }
-.battle-footer { padding: 0 14px 12px !important; font-size: 12px !important; }
-
-/* BURN */
-.burn-meta-row { padding: 0 14px 10px !important; }
-.burn-chip { font-size: 12px !important; padding: 5px 12px !important; }
-
-/* THREAD */
-.thread-blocks { padding: 0 14px 14px !important; }
-.thread-block { 
-  padding: 13px 14px !important; 
-  font-size: 15px !important; 
-  line-height: 1.65 !important;
-}
-
 /* POLL */
 .poll-opts { padding: 0 14px 14px !important; }
 .poll-opt { 
@@ -168,15 +172,12 @@ body[data-page="feed"] {
   height: 50px !important; 
 }
 
-/* TABS — lisibles */
-.feed-tabs-wrap .tab-item { 
-  padding: 11px 14px !important; 
-  font-size: 13px !important; 
-}
-
-/* BURN border gauche preservée */
-.post-card.burn { border-left: 3px solid rgba(240,79,90,.6) !important; }
-.post-card.whisper { border-left: 3px solid rgba(139,92,246,.5) !important; }
+/* Accent gauche par type — identité visuelle cohérente sur toute la carte,
+   pas juste le badge (repris du principe qui existait pour burn/whisper,
+   appliqué aux 3 types qui restent). */
+.post-card.type-csdpm-card { border-left: 3px solid rgba(245,158,11,.5) !important; }
+.post-card.type-media-card { border-left: 3px solid rgba(20,184,166,.5) !important; }
+.post-card.type-poll-card  { border-left: 3px solid rgba(34,197,94,.5) !important; }
 
 /* BOTTOM NAV — bien visible */
 .bnav {
@@ -310,15 +311,6 @@ body[data-page="feed"] {
   white-space: nowrap;
 }
 
-/* ─── TABS ─── */
-.feed-tabs-wrap {
-  position: sticky;
-  top: 52px;
-  z-index: calc(var(--z-sticky) - 1);
-  background: var(--bg);
-  transition: background var(--t-slow);
-}
-
 /* ─── FEED CONTENT ─── */
 .feed-content {
   padding-bottom: 20px;
@@ -412,94 +404,6 @@ body[data-page="feed"] {
   word-break: break-word;
 }
 
-/* ─── POST TYPES — Whisper ─── */
-.post-card.whisper {
-  border-color: rgba(139,92,246,0.2);
-  background: linear-gradient(135deg, var(--card), rgba(139,92,246,0.04));
-}
-
-.post-card.whisper .post-body {
-  font-style: italic;
-  color: var(--text2);
-}
-
-/* ─── POST TYPE — Burn ─── */
-.post-card.burn {
-  border-color: rgba(240,79,90,0.2);
-}
-
-.burn-meta-row {
-  display: flex;
-  gap: 6px;
-  padding: 0 12px 9px;
-}
-
-.burn-chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: var(--r-full);
-  background: rgba(240,79,90,0.10);
-  color: #f87171;
-}
-
-.burn-chip svg { width: 10px; height: 10px; }
-
-/* ─── POST TYPE — Battle ─── */
-.battle-opts {
-  padding: 0 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.battle-opt {
-  padding: 10px 12px;
-  background: var(--card2);
-  border-radius: var(--r-sm);
-  border: 1px solid var(--border2);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: border-color var(--t-base);
-  user-select: none;
-}
-
-.battle-opt.leading { border-color: var(--blue); }
-.battle-opt.voted   { opacity: 0.75; }
-
-.battle-bar-fill {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  background: rgba(91,142,244,0.10);
-  border-radius: var(--r-sm) 0 0 var(--r-sm);
-  transition: width 0.5s ease;
-}
-
-.battle-opt-row {
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.battle-pct {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--blue);
-}
-
-.battle-footer {
-  padding: 0 12px 10px;
-  font-size: 10px;
-  color: var(--muted);
-}
-
 /* ─── POST TYPE — Poll ─── */
 .poll-opts {
   padding: 0 12px 12px;
@@ -566,31 +470,6 @@ body[data-page="feed"] {
   display: flex; align-items: center; justify-content: center;
   height: 120px; font-size: 12px; color: var(--muted);
   background: var(--card2);
-}
-
-/* ─── POST TYPE — Thread ─── */
-.thread-blocks {
-  padding: 0 12px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.thread-block {
-  padding: 10px 12px;
-  background: var(--card2);
-  border-radius: var(--r-sm);
-  border-left: 2px solid var(--blue);
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--text);
-}
-
-.thread-block-num {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--blue);
-  margin-bottom: 4px;
 }
 
 /* ─── REACTIONS — 4 emojis fixes (🤣❤️😡🎊), toujours visibles ─── */
@@ -773,14 +652,9 @@ body[data-page="feed"] {
 /* FIX: tous les onglets actifs avaient exactement la même couleur (bleu
    générique), peu importe le type sélectionné. Chaque type a maintenant sa
    couleur dédiée, cohérente avec son badge dans le feed. */
-.ctype.active[data-type="confession"] { background: rgba(91,142,244,0.12)  !important; border-color: #5B8EF4 !important; color: #5B8EF4 !important; }
 .ctype.active[data-type="csdpm"]      { background: rgba(245,158,11,0.12)  !important; border-color: #F59E0B !important; color: #F59E0B !important; }
-.ctype.active[data-type="whisper"]    { background: rgba(139,92,246,0.12) !important; border-color: #8B5CF6 !important; color: #8B5CF6 !important; }
-.ctype.active[data-type="battle"]     { background: rgba(236,72,153,0.12) !important; border-color: #EC4899 !important; color: #EC4899 !important; }
-.ctype.active[data-type="burn"]       { background: rgba(240,79,90,0.12)  !important; border-color: #F04F5A !important; color: #F04F5A !important; }
 .ctype.active[data-type="media"]      { background: rgba(20,184,166,0.12) !important; border-color: #14B8A6 !important; color: #14B8A6 !important; }
 .ctype.active[data-type="poll"]       { background: rgba(34,197,94,0.12)  !important; border-color: #22C55E !important; color: #22C55E !important; }
-.ctype.active[data-type="thread"]     { background: rgba(99,102,241,0.12) !important; border-color: #6366F1 !important; color: #6366F1 !important; }
 
 .ctype-emoji { font-size: 18px; }
 
@@ -877,15 +751,6 @@ body[data-page="feed"] {
 
 .composer-field { margin-bottom: 4px; }
 
-/* Battle composer */
-.battle-options-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.battle-opt-input,
 .poll-opt-input {
   width: 100%;
   padding: 10px 13px;
@@ -898,12 +763,9 @@ body[data-page="feed"] {
   outline: none;
   transition: border-color var(--t-base);
 }
-.battle-opt-input:focus,
 .poll-opt-input:focus { border-color: var(--blue); }
 
-.add-battle-opt,
-.add-poll-opt,
-.add-thread-block {
+.add-poll-opt {
   width: 100%;
   padding: 9px;
   margin-top: 6px;
@@ -916,46 +778,7 @@ body[data-page="feed"] {
   cursor: pointer;
   transition: all var(--t-base);
 }
-.add-battle-opt:hover,
-.add-poll-opt:hover,
-.add-thread-block:hover { background: rgba(91,142,244,0.06); border-color: var(--blue); }
-
-.duration-opts,
-.burn-opts {
-  display: flex;
-  gap: 6px;
-}
-
-.dur-opt,
-.burn-opt {
-  flex: 1;
-  padding: 7px 6px;
-  border-radius: var(--r-sm);
-  border: 1.5px solid var(--border2);
-  background: var(--card);
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text2);
-  cursor: pointer;
-  transition: all var(--t-base);
-}
-
-.dur-opt.active,
-.burn-opt.active {
-  border-color: var(--blue);
-  background: rgba(91,142,244,0.10);
-  color: var(--blue);
-}
-
-.burn-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.burn-setting-row { display: flex; flex-direction: column; }
+.add-poll-opt:hover { background: rgba(91,142,244,0.06); border-color: var(--blue); }
 
 /* Media composer */
 .media-tabs {
@@ -1023,37 +846,6 @@ body[data-page="feed"] {
 }
 .gif-item:active { transform: scale(0.96); }
 .gif-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
-
-/* Thread blocks */
-.thread-block-composer {
-  padding: 10px 12px;
-  background: var(--input-bg);
-  border: 1.5px solid var(--border2);
-  border-radius: var(--r-sm);
-  border-left: 2px solid var(--blue);
-  margin-bottom: 6px;
-  position: relative;
-}
-
-.thread-block-num-label {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--blue);
-  margin-bottom: 5px;
-}
-
-.thread-block-textarea {
-  width: 100%;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  line-height: 1.6;
-  resize: none;
-  min-height: 60px;
-}
 
 /* ─── ROULETTE ─── */
 .roulette-card {
@@ -1477,7 +1269,6 @@ body[data-page="feed"] {
   .feed-empty    { padding: 36px 16px; }
   .ctype         { min-width: 52px; padding: 7px 8px; }
   .ctype-emoji   { font-size: 16px; }
-  .battle-opt    { padding: 8px 10px; font-size: 12px; }
   .post-body     { font-size: 12px; }
   .composer-textarea { font-size: 13px; }
 }
@@ -1493,12 +1284,13 @@ body[data-page="feed"] {
   border-radius: 0 !important;
   border-right: none !important;
   border-top: none !important;
-  border-left: none !important; /* BUG-14 fix: overridé par whisper/burn ci-dessous */
+  border-left: none !important; /* BUG-14 fix: overridé par l'accent de type ci-dessous */
   border-bottom: 8px solid var(--bg) !important;
 }
-/* BUG-14 fix: préserver les borders spéciales burn et whisper */
-.post-card.burn    { border-left: 3px solid rgba(240,79,90,.5) !important; }
-.post-card.whisper { border-left: 3px solid rgba(139,92,246,.4) !important; }
+/* BUG-14 fix: préserver l'accent de couleur par type (CSDPM/Media/Sondage) */
+.post-card.type-csdpm-card { border-left: 3px solid rgba(245,158,11,.5) !important; }
+.post-card.type-media-card { border-left: 3px solid rgba(20,184,166,.5) !important; }
+.post-card.type-poll-card  { border-left: 3px solid rgba(34,197,94,.5) !important; }
 
 /* Header post — avatar plus grand */
 .post-header {
@@ -1530,21 +1322,9 @@ body[data-page="feed"] {
 .post-action  { font-size: 13px !important; padding: 12px 6px !important; gap: 6px !important; }
 .post-action svg { width: 18px !important; height: 18px !important; }
 
-/* Battle — options plus grandes */
-.battle-opt { padding: 14px !important; font-size: 15px !important; border-radius: 12px !important; }
-.battle-pct { font-size: 13px !important; }
-.battle-footer { font-size: 12px !important; padding: 0 14px 12px !important; }
-
 /* Poll */
 .poll-opt { padding: 13px 14px !important; font-size: 15px !important; border-radius: 12px !important; }
 .poll-pct { font-size: 12px !important; }
-
-/* Burn chips */
-.burn-chip { font-size: 12px !important; padding: 5px 12px !important; }
-
-/* Thread blocks */
-.thread-block { padding: 12px 14px !important; font-size: 15px !important; }
-.thread-block-num { font-size: 11px !important; }
 
 /* Media */
 /* FIX: 'max-height: none' supprimait le plafond de hauteur des images sur
@@ -1559,7 +1339,6 @@ body[data-page="feed"] {
 .story-label { font-size: 10px !important; }
 
 /* Tabs — plus lisibles */
-.feed-tabs-wrap .tab-item { padding: 12px 14px !important; font-size: 13px !important; }
 
 /* Bottom nav — plus grand sur Android */
 .bnav { height: 68px !important; padding: 0 4px !important; }
@@ -1567,7 +1346,3 @@ body[data-page="feed"] {
 .bnav-item span { font-size: 10px !important; }
 .bnav-post-btn { width: 52px !important; height: 52px !important; border-radius: 16px !important; }
 .nav-badge { min-width: 18px !important; height: 18px !important; font-size: 10px !important; }
-
-/* Post-card burn border */
-/* BUG-14: borders burn/whisper déplacées dans le patch */
-

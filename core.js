@@ -451,7 +451,15 @@
         fd.append('folder', 'sis_v2/voice');
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + SIS.cloudinary.cloudName + '/video/upload');
+        /* FIX (vérifié sur la doc Cloudinary) : /video/upload force le type
+           de ressource ; si ton preset a une transformation à l'entrée pensée
+           pour des images, l'appliquer à un blob audio peut échouer. /auto/
+           upload laisse Cloudinary détecter lui-même le type — même preset,
+           même cloud_name, juste un endpoint qui s'adapte plutôt que d'imposer.
+           L'audio reste stocké en resource_type "video" côté Cloudinary (leur
+           convention : vidéo ET audio partagent ce type), donc l'URL de
+           lecture plus bas (.../video/upload/...) reste correcte telle quelle. */
+        xhr.open('POST', 'https://api.cloudinary.com/v1_1/' + SIS.cloudinary.cloudName + '/auto/upload');
         if (typeof onProgress === 'function') {
           xhr.upload.onprogress = function (e) {
             if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
