@@ -26,10 +26,8 @@
       switch (PAGE) {
         case 'auth':      AuthModule.init();      break;
         case 'feed':      FeedModule.init();      break;
-        case 'chat':      ChatModule.init();      break;
         case 'profil':    ProfilModule.init();    break;
         case 'notifs':    NotifsModule.init();    break;
-        case 'decouvrir': DiscoverModule.init();  break;
         default: break;
       }
     } catch (e) {
@@ -975,371 +973,495 @@
 
   function initFeed(user) {
     var fd = {
-      lastDoc:       null,
-      loading:       false,
-      noMore:        false,
-      unsubPosts:    null,
-      unsubStories:  null,
-      postType:      'csdpm',
-      identity:      'anon',
-      storyBg:       'linear-gradient(135deg,#5B8EF4,#8B5CF6)',
-      mediaFile:     null,
-      mediaGifUrl:   null,
-      mediaMode:     'image',
-      echoPostId:    null,
-      commentPostId: null,
-      roulettePosts: [],
-      rouletteIdx:   0,
-      threadBlocks:  1,
-      TENOR_KEY:     '', /* → Mets ta clé Tenor ici : console.cloud.google.com/apis/tenor */
-      PAGE_SIZE:     10,
-      userInterests: []
+      currentTab:       'live-now',
+      currentLiveId:    null,
+      isHost:           false,
+      myRole:           null, /* 'host' | 'speaker' | 'listener' */
+      micMuted:         true,
+      unsubLives:       null,
+      unsubLiveDoc:     null,
+      unsubQueue:       null,
+      unsubChat:        null,
+      unwatchListeners: null,
+      queueCount:       0,
+      createTiming:     'now',
+      createVisibility: 'public',
+      createTheme:      'libre',
+      storyBg:          'linear-gradient(135deg,#5B8EF4,#8B5CF6)',
+      unsubStories:     null
     };
 
-    /* ── HELPERS ── */
     function q(id) { return document.getElementById(id); }
-    function qs(sel, ctx) { return (ctx||document).querySelector(sel); }
     function qsa(sel, ctx) { return Array.from((ctx||document).querySelectorAll(sel)); }
+    function showOverlay(id) { var e=q(id); if(e) e.style.display='flex'; }
+    function hideOverlay(id) { var e=q(id); if(e) e.style.display='none'; }
 
-    function showOverlay(id)  { var e=q(id); if(e) e.style.display='flex'; }
-    function hideOverlay(id)  { var e=q(id); if(e) e.style.display='none'; }
+    var CATEGORIES = [
+      { id:'libre',      label:'Libre',      emoji:'🎤' },
+      { id:'confession', label:'Confession', emoji:'🤫' },
+      { id:'tech',       label:'Tech',       emoji:'💻' },
+      { id:'debat',      label:'Débat',      emoji:'🗣️' },
+      { id:'musique',    label:'Musique',    emoji:'🎵' }
+    ];
+    function themeLabel(t) { var m={}; CATEGORIES.forEach(function(c){m[c.id]=c.label;}); return m[t] || 'Libre'; }
+    function themeEmoji(t) { var m={}; CATEGORIES.forEach(function(c){m[c.id]=c.emoji;}); return m[t] || '🎤'; }
 
-    /* ── RENDER POST ── */
-    function renderPost(doc) {
-      var d   = doc.data();
-      var id  = doc.id;
-      var div = document.createElement('div');
-      var typeCardCls = { csdpm:'type-csdpm-card', media:'type-media-card', poll:'type-poll-card' };
-      div.className = 'post-card ' + (typeCardCls[d.type] || 'type-csdpm-card');
-      div.setAttribute('data-id', id);
+    function formatScheduledTime(ts) {
+      if (!ts) return '?';
+      var d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleString('fr-FR', { weekday:'short', hour:'2-digit', minute:'2-digit' });
+    }
 
-      var certified = d.authorCertified || false;
-      var pseudoDisplay = d.identity === 'anon'
-        ? 'Anonyme'
-        : d.identity === 'mystery'
-          ? '🎭 Mystère'
-          : SIS.utils.escHtml(d.authorPseudo || 'User');
+    /* ── ONGLETS ── */
+    function switchTab(tab) {
+      fd.currentTab = tab;
+      qsa('#lives-tabs .tab-item').forEach(function(t){ t.classList.toggle('active', t.getAttribute('data-tab')===tab); });
+      qsa('.lives-tab-content').forEach(function(c){ c.style.display = 'none'; });
+      var content = q('tab-' + tab);
+      if (content) content.style.display = 'block';
+      SIS.injectBottomNav(tab === 'explorer' ? 'explorer' : tab === 'mylives' ? 'mylives' : 'feed');
+      if (tab === 'live-now') loadLiveNow();
+      else if (tab === 'explorer') loadExplorer();
+      else if (tab === 'mylives') loadMyLives();
+    }
 
-      var avatarHtml = SIS.renderAvatar({
-        photoUrl:  d.identity === 'name' ? (d.authorPhoto || null) : null,
-        pseudo:    d.identity === 'name' ? (d.authorPseudo || '?') : (d.identity === 'mystery' ? '🎭' : '?'),
-        certified: d.identity === 'name' && certified,
-        size:      'sm',
-        gradient:  d.identity === 'anon'
-          ? 'linear-gradient(135deg,#f04f5a,#8B5CF6)'
-          : SIS.utils.pseudoToGradient(d.authorPseudo || id),
-        onClick:   d.identity === 'name' ? function(pseudo) { SIS.profilePopup.show(pseudo); } : null
+    /* ── CARTES LIVE (composants réutilisés partout) ── */
+    function renderFeaturedCard(live) {
+      var d = live.data;
+      var card = document.createElement('div');
+      card.className = 'featured-live-card';
+      card.innerHTML =
+        '<div class="featured-live-badge"><span class="live-dot"></span> EN VEDETTE</div>' +
+        '<div class="featured-live-title">' + SIS.utils.escHtml(d.title||'') + '</div>' +
+        '<div class="featured-live-host">' +
+          SIS.renderAvatar({ pseudo:d.hostPseudo||'?', photoUrl:d.hostPhotoUrl, size:'xs', gradient:SIS.utils.pseudoToGradient(d.hostPseudo||'') }) +
+          SIS.utils.escHtml(d.hostPseudo||'?') +
+        '</div>' +
+        '<div class="featured-live-listeners"><span class="live-dot"></span>' + SIS.utils.formatCount(d.listenersCount||0) + ' à l\'écoute</div>';
+      card.addEventListener('click', function(){ joinLive(live.id, false); });
+      SIS.bindAvatarClicks(card);
+      return card;
+    }
+
+    function renderLiveCard(live) {
+      var d = live.data;
+      var isLive = d.status === 'live';
+      var card = document.createElement('div');
+      card.className = 'live-card';
+      card.innerHTML =
+        '<div class="live-card-avatar-wrap">' +
+          (isLive ? '<div class="live-card-pulse-ring"></div>' : '') +
+          SIS.renderAvatar({ pseudo:d.hostPseudo||'?', photoUrl:d.hostPhotoUrl, size:'md', gradient:SIS.utils.pseudoToGradient(d.hostPseudo||'') }) +
+        '</div>' +
+        '<div class="live-card-info">' +
+          '<div class="live-card-title">' + SIS.utils.escHtml(d.title||'') + '</div>' +
+          '<div class="live-card-sub">' + SIS.utils.escHtml(d.hostPseudo||'?') + ' · ' + themeEmoji(d.theme) + ' ' + themeLabel(d.theme) + '</div>' +
+        '</div>' +
+        '<div class="live-card-stats">' +
+          (isLive
+            ? '<div class="live-card-listeners"><span class="live-dot"></span>' + SIS.utils.formatCount(d.listenersCount||0) + '</div>'
+            : '<div class="live-card-badge-scheduled">' + formatScheduledTime(d.scheduledFor) + '</div>') +
+        '</div>';
+      card.addEventListener('click', function(){
+        if (isLive) joinLive(live.id, false);
+        else SIS.toast.info('Programmé pour ' + formatScheduledTime(d.scheduledFor));
+      });
+      return card;
+    }
+
+    /* ── ONGLET EN DIRECT (Accueil) ── */
+    function loadLiveNow() {
+      if (fd.unsubLives) { fd.unsubLives(); fd.unsubLives = null; }
+      fd.unsubLives = SIS.live.listenToLives(function(lives) {
+        var skel = q('live-now-skeletons'); if (skel) skel.style.display = 'none';
+
+        var live = lives.filter(function(l){ return l.data.status === 'live'; });
+        var scheduled = lives.filter(function(l){ return l.data.status === 'scheduled'; });
+
+        q('lives-empty').style.display = (live.length===0 && scheduled.length===0) ? 'block' : 'none';
+
+        var featuredWrap = q('featured-live-wrap');
+        featuredWrap.innerHTML = '';
+        if (live.length > 0) {
+          var followedLive = live.filter(function(l){ return fd.followedUids && fd.followedUids[l.data.hostUid]; });
+          var pool = followedLive.length ? followedLive : live;
+          var featured = pool.slice().sort(function(a,b){ return (b.data.listenersCount||0)-(a.data.listenersCount||0); })[0];
+          featuredWrap.appendChild(renderFeaturedCard(featured));
+        }
+
+        q('lives-now-title').style.display = live.length ? 'block' : 'none';
+        var nowList = q('lives-now-list');
+        nowList.innerHTML = '';
+        live.forEach(function(l){ nowList.appendChild(renderLiveCard(l)); });
+
+        q('lives-scheduled-title').style.display = scheduled.length ? 'block' : 'none';
+        var schedList = q('lives-scheduled-list');
+        schedList.innerHTML = '';
+        scheduled.forEach(function(l){ schedList.appendChild(renderLiveCard(l)); });
       });
 
-      var certBadge = d.identity === 'name' && certified
-        ? '<svg width="13" height="13" viewBox="0 0 24 24" style="flex-shrink:0"><defs><linearGradient id="pcg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5B8EF4"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="url(#pcg)"/></svg>'
-        : '';
+      /* Comptes suivis, pour prioriser le live en vedette (section 6.14 du
+         plan) — réutilise SIS.social/la collection follows telle quelle. */
+      SIS.db.collection('follows').where('followerUid','==',user.uid).limit(300).get().then(function(snap) {
+        fd.followedUids = {};
+        snap.forEach(function(doc){ fd.followedUids[doc.data().targetUid] = true; });
+      }).catch(function(){});
+    }
 
-      /* Type badge : seuls CSDPM / Sondage / Media sont créables désormais.
-         Le dictionnaire garde un repli 'csdpm' pour ne pas casser l'affichage
-         d'anciens posts d'un type retiré (confession/whisper/battle/burn/
-         thread) qui existeraient encore en base. */
-      var typeCls = { csdpm:'type-csdpm', media:'type-media', poll:'type-poll' };
-      var typeLabel = { csdpm:'🤐 CSDPM', media:'📷 Media', poll:'📊 Sondage' };
-
-      var header =
-        '<div class="post-header">' +
-          avatarHtml +
-          '<div class="post-identity-info">' +
-            '<div class="post-pseudo">' + pseudoDisplay + certBadge + '</div>' +
-            '<div class="post-meta">' +
-              (d.authorCountry ? d.authorCountry + ' · ' : '') +
-              SIS.utils.timeAgo(d.createdAt) +
-            '</div>' +
-          '</div>' +
-          '<span class="post-type ' + (typeCls[d.type] || 'type-csdpm') + '"' + (d.type==='csdpm' ? ' title="Ça se dit pas, mais…"' : '') + '>' +
-            (typeLabel[d.type] || d.type) +
-          '</span>' +
-          '<button class="post-more-btn" data-id="' + id + '">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>' +
-          '</button>' +
-        '</div>';
-
-      var body = '';
-
-      /* Corps selon type */
-      if (d.type === 'poll') {
-        var totalPollVotes = (d.options || []).reduce(function(s,o){ return s+(o.votes||0); }, 0);
-        var pollHtml = (d.options || []).map(function(opt, i) {
-          var pct = totalPollVotes > 0 ? Math.round((opt.votes||0)/totalPollVotes*100) : 0;
-          return '<div class="poll-opt" data-idx="' + i + '" data-post="' + id + '">' +
-            '<div class="poll-bar-fill" style="width:' + pct + '%"></div>' +
-            '<div class="poll-opt-row"><span style="position:relative">' + SIS.utils.escHtml(opt.text||'') + '</span>' +
-            '<span class="poll-pct">' + pct + '%</span></div>' +
-            '</div>';
-        }).join('');
-        body =
-          '<div class="post-body">' + SIS.utils.parseText(d.question||d.text||'') + '</div>' +
-          '<div class="poll-opts">' + pollHtml + '</div>';
-
-      } else if (d.type === 'media') {
-        var caption = d.caption ? '<div class="post-body">' + SIS.utils.parseText(d.caption) + '</div>' : '';
-        var mediaEl = d.gifUrl
-          ? '<img class="post-media-gif" src="' + SIS.utils.escHtml(d.gifUrl) + '" loading="lazy" alt="GIF">'
-          : d.mediaUrl
-            ? '<img class="post-media-img" src="' + SIS.cloudinary.url(d.mediaUrl,'feed') + '" loading="lazy" alt="Media" onerror="console.error(\'[SIS] Image post échouée — URL:\',this.src,\'· publicId brut:\',\''+SIS.utils.escHtml(d.mediaUrl)+'\');this.outerHTML=\'<div class=\\\'media-error\\\'>⚠️ Image indisponible</div>\'">'
-            : '';
-        body = caption + mediaEl;
-
-      } else {
-        /* csdpm, et repli générique pour tout ancien post d'un type retiré */
-        body = '<div class="post-body">' + SIS.utils.parseText(d.text || d.question || '') + '</div>';
+    /* ── ONGLET EXPLORER ── */
+    function loadExplorer() {
+      var catGrid = q('explorer-categories');
+      if (catGrid && catGrid.children.length === 0) {
+        CATEGORIES.forEach(function(cat) {
+          var chip = document.createElement('div');
+          chip.className = 'explorer-cat-chip';
+          chip.innerHTML = '<span class="explorer-cat-emoji">'+cat.emoji+'</span><span>'+cat.label+'</span>';
+          chip.addEventListener('click', function(){
+            qsa('.explorer-cat-chip', catGrid).forEach(function(c){ c.style.borderColor=''; });
+            chip.style.borderColor = 'var(--blue)';
+            filterExplorerByCategory(cat.id);
+          });
+          catGrid.appendChild(chip);
+        });
       }
+      SIS.db.collection('lives').orderBy('createdAt','desc').limit(50).get().then(function(snap) {
+        var live = [];
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          if (d.visibility === 'private' || d.status !== 'live') return;
+          live.push({ id: doc.id, data: d });
+        });
+        /* Tendance = tri par auditeurs actuels (proxy simple ; un vrai calcul
+           de croissance sur 10 min demanderait un historique de compteur,
+           hors du scope de ce premier jet). */
+        var trending = live.slice().sort(function(a,b){ return (b.data.listenersCount||0)-(a.data.listenersCount||0); }).slice(0,10);
+        var trendList = q('explorer-trending-list');
+        trendList.innerHTML = '';
+        trending.forEach(function(l){ trendList.appendChild(renderLiveCard(l)); });
 
-      /* Echo preview */
-      var echoHtml = '';
-      if (d.echoOf) {
-        echoHtml = '<div class="echo-original"><div class="echo-original-meta">↩ Echo de ' +
-          SIS.utils.escHtml(d.echoOriginalPseudo || 'quelqu\'un') + '</div>' +
-          SIS.utils.parseText(d.echoOriginalText || '') + '</div>';
-      }
+        var oneHourAgo = Date.now() - 3600000;
+        var fresh = live.filter(function(l){
+          var t = l.data.createdAt;
+          var ms = t && t.toMillis ? t.toMillis() : 0;
+          return ms > oneHourAgo;
+        });
+        var newList = q('explorer-new-list');
+        newList.innerHTML = '';
+        fresh.forEach(function(l){ newList.appendChild(renderLiveCard(l)); });
 
-      /* Réactions — RÉINTÉGRÉES sur nouvelle demande, exactement 4 emojis
-         fixes (pas de palette). Barre toujours visible façon Slack, plus
-         simple et plus sûre qu'un picker flottant (aucun souci de
-         positionnement/z-index). Le nombre affiché est TOUJOURS la longueur
-         réelle du tableau d'UIDs -> ne peut jamais dériver ("partir en
-         sucette") comme un compteur incrémenté à la main. */
-      var REACTION_EMOJIS = ['🤣','❤️','😡','🎊'];
-      var reactionsHtml = '<div class="reaction-bar" data-id="' + id + '">' +
-        REACTION_EMOJIS.map(function(e) {
-          var uids = (d.reactions && d.reactions[e]) || [];
-          var isActive = !!(user && uids.indexOf(user.uid) > -1);
-          return '<button class="reaction-btn' + (isActive ? ' active' : '') + '" data-emoji="' + e + '" data-id="' + id + '">' +
-            '<span class="reaction-emoji">' + e + '</span>' +
-            '<span class="reaction-count">' + (uids.length || '') + '</span>' +
-          '</button>';
-        }).join('') +
-      '</div>';
-
-      /* Actions */
-      var actions =
-        '<div class="post-actions">' +
-          '<div class="post-action" data-action="comment" data-id="' + id + '">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>' +
-            (d.commentsCount || 0) +
-          '</div>' +
-          '<div class="post-action" data-action="echo" data-id="' + id + '">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>' +
-            (d.echoCount || 0) +
-          '</div>' +
-          '<div class="post-action" data-action="share" data-id="' + id + '">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>' +
-          '</div>' +
-        '</div>';
-
-      div.innerHTML = header + echoHtml + body + reactionsHtml + actions;
-      SIS.bindAvatarClicks(div);
-      return div;
+        q('explorer-empty').style.display = live.length === 0 ? 'block' : 'none';
+      });
     }
 
-    /* ── CENTRES D'INTÉRÊT (pour la pondération de l'algorithme) ── */
-    function loadUserInterests() {
-      return SIS.authHelper.getProfile(user.uid)
-        .then(function (profile) {
-          fd.userInterests = (profile && profile.interests) || [];
-        })
-        .catch(function () { fd.userInterests = []; });
+    function filterExplorerByCategory(catId) {
+      SIS.db.collection('lives').where('status','==','live').limit(50).get().then(function(snap) {
+        var filtered = [];
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          if (d.visibility !== 'private' && d.theme === catId) filtered.push({ id: doc.id, data: d });
+        });
+        var trendList = q('explorer-trending-list');
+        trendList.innerHTML = '';
+        filtered.forEach(function(l){ trendList.appendChild(renderLiveCard(l)); });
+        q('explorer-new-list').innerHTML = '';
+        q('explorer-empty').style.display = filtered.length === 0 ? 'block' : 'none';
+      });
     }
 
-    /* ── ALGORITHME DU FIL — mixte Instagram (récence) / Facebook (engagement
-       + pertinence) — fil unique, sans onglets ni filtres (retirés sur
-       demande : anonymat = pas de catégories, pas de mesure de popularité). */
-    function scorePost(doc) {
-      var d = doc.data();
-      var nowMs = Date.now();
-      var createdMs = (d.createdAt && d.createdAt.toMillis) ? d.createdAt.toMillis() : nowMs;
-      var ageHours = Math.max(0.5, (nowMs - createdMs) / 3600000);
+    /* ── ONGLET MES LIVES ── */
+    function loadMyLives() {
+      SIS.db.collection('lives').where('hostUid','==',user.uid).orderBy('createdAt','desc').limit(30).get().then(function(snap) {
+        var scheduled = [];
+        var history = [];
+        snap.forEach(function(doc) {
+          var d = doc.data();
+          if (d.status === 'scheduled') scheduled.push({ id: doc.id, data: d });
+          else if (d.status === 'ended') history.push({ id: doc.id, data: d });
+        });
 
-      /* Récence (façon Instagram) : décroît avec le temps */
-      var recencyScore = 120 / Math.pow(ageHours, 0.7);
+        var schedList = q('mylives-scheduled-list');
+        schedList.innerHTML = '';
+        scheduled.forEach(function(l){ schedList.appendChild(renderMyScheduledCard(l)); });
+        q('mylives-scheduled-empty').style.display = scheduled.length === 0 ? 'block' : 'none';
 
-      /* Engagement (façon Facebook) : commentaires/echoes pèsent plus.
-         RETIRÉ sur demande : les réactions n'existent plus. */
-      var engagement = (d.commentsCount || 0) * 3 + (d.echoCount || 0) * 4;
-      var engagementScore = Math.log(1 + engagement) * 12;
+        var histPreview = q('mylives-history-preview');
+        histPreview.innerHTML = '';
+        history.slice(0,3).forEach(function(l){ histPreview.appendChild(renderHistoryCard(l)); });
+      });
 
-      /* Pertinence : boost si un hashtag du post correspond à un centre
-         d'intérêt (remplace l'ancien matching par mood, qui n'avait de toute
-         façon jamais le même vocabulaire que les centres d'intérêt). */
-      var interestScore = 0;
-      if (d.hashtags && d.hashtags.length && fd.userInterests.length) {
-        for (var i = 0; i < d.hashtags.length; i++) {
-          if (fd.userInterests.indexOf(d.hashtags[i]) > -1) { interestScore = 45; break; }
-        }
-      }
-
-      return recencyScore + engagementScore + interestScore;
-    }
-
-    /* ── CHARGER LES POSTS ── */
-    /* FIX BUG MAJEUR (architecture complète revue) : TOUTE combinaison
-       .where() + .orderBy() sur des champs DIFFÉRENTS dans Firestore exige
-       un index composite créé manuellement dans la console Firebase. Sans
-       ces index (qui n'existent pas sur ce projet), la requête échouait en
-       silence (FAILED_PRECONDITION). Solution : buildQuery() ne pose que
-       l'orderBy nécessaire au tri (un seul champ), jamais combiné à un
-       where sur un autre champ. Le filtre 'hidden' est appliqué côté
-       client dans loadPosts(). Aucun index composite n'est donc nécessaire. */
-    function buildQuery() {
-      return SIS.db.collection('posts').orderBy('createdAt', 'desc');
-    }
-
-    /* RETIRÉ sur demande : onglets (Global/Viral/CSDPM/Whispers/Battles/
-       Abonnements) et filtre d'humeur — fil unique pour tout le monde. Seul
-       le filtre 'hidden' (contenu modéré) reste nécessaire. */
-    function clientSideFilter(doc) {
-      return !doc.data().hidden;
-    }
-
-    function loadPosts(reset) {
-      if (fd.loading || (fd.noMore && !reset)) return;
-      fd.loading = true;
-
-      if (reset) {
-        fd.lastDoc = null;
-        fd.noMore  = false;
-        q('posts-list').innerHTML = '';
-        q('feed-skeletons').style.display = 'block';
-      }
-
-      /* FIX/ALGO: pour TOUS les onglets, on récupère désormais un pool plus
-         large que la page affichée (un seul orderBy Firestore, sans aucun
-         where combiné — voir buildQuery), puis on filtre côté client
-         (hidden, type, abonnements, humeur) et, pour le fil global, on
-         reclasse par score. Le curseur de pagination (fd.lastDoc) reste basé
-         sur le DERNIER document du pool complet, pas sur le sous-ensemble
-         affiché, pour ne rien sauter/répéter. */
-      /* Fil unique : toujours l'algo récence+engagement+intérêts, sur un
-         pool plus large que la page affichée (le seul filtre restant,
-         'hidden', réduit peu le rendement). */
-      var poolSize = fd.PAGE_SIZE * 3;
-
-      var query = buildQuery().limit(poolSize);
-      if (fd.lastDoc) query = query.startAfter(fd.lastDoc);
-
-      query.get()
-        .then(function (snap) {
-          if (!q('feed-skeletons')) return; /* page déjà quittée */
-          q('feed-skeletons').style.display = 'none';
-          fd.loading = false;
-          if (q('feed-loader')) q('feed-loader').style.display = 'none';
-
-          /* FIX: filtrage côté client (contenu modéré) — voir buildQuery(). */
-          var filteredDocs = snap.docs.filter(clientSideFilter);
-
-          /* Curseur de pagination mis à jour AVANT le test "vide", pour
-             pouvoir relancer automatiquement la recherche plus loin si ce
-             lot filtré est vide mais qu'il reste des posts à chercher
-             (FIX: voir commentaire détaillé plus bas). */
-          fd.lastDoc = snap.docs[snap.docs.length - 1];
-          var poolWasFull = (snap.docs.length === poolSize);
-          if (!poolWasFull) fd.noMore = true;
-
-          if (filteredDocs.length === 0) {
-            /* FIX: avant, si LE PREMIER lot récupéré (ex: 50 posts les plus
-               récents) ne contenait AUCUN post correspondant au filtre actif
-               (humeur, type d'onglet...), l'app abandonnait immédiatement et
-               affichait "Aucun post" — même s'il existait des posts
-               correspondants plus loin dans l'historique. On relance
-               maintenant automatiquement la recherche (jusqu'à 4 lots
-               supplémentaires) avant de vraiment conclure que c'est vide. */
-            if (poolWasFull && (fd._emptyRetries || 0) < 4) {
-              fd._emptyRetries = (fd._emptyRetries || 0) + 1;
-              fd.loading = false;
-              loadPosts(false);
-              return;
-            }
-            fd._emptyRetries = 0;
-
-            if (reset || q('posts-list').children.length === 0) {
-              fd.noMore = true;
-              /* FIX: var emptyEl était déclaré deux fois (copier-coller) */
-              var emptyEl = q('feed-empty');
-              if (emptyEl) {
-                emptyEl.style.display = 'block';
-                var emptyHtml = document.createElement('div');
-                emptyHtml.innerHTML = '<div class="feed-empty-icon">&#10024;</div>';
-                var et = document.createElement('div'); et.className='feed-empty-title'; et.textContent='Sois le premier a publier !'; emptyHtml.appendChild(et);
-                var es = document.createElement('div'); es.className='feed-empty-sub'; es.textContent='SIS est tout neuf. Publie le premier post !'; emptyHtml.appendChild(es);
-                var eb = document.createElement('button'); eb.className='btn-primary'; eb.style.cssText='margin:16px auto;display:block;padding:12px 24px;width:auto'; eb.textContent='Publier '; emptyHtml.appendChild(eb);
-                eb.addEventListener('click', function(){ var pb=document.querySelector('.bnav-post-btn'); if(pb) pb.click(); });
-                emptyEl.innerHTML=''; emptyEl.appendChild(emptyHtml);
-              }
-            }
+      /* Invitations directes à parler en attente */
+      SIS.db.collection('notifications').doc(user.uid).collection('items')
+        .where('type','==', SIS.notifs.TYPES.SPEAK_INVITATION).limit(10).get().then(function(snap) {
+          var list = q('mylives-invitations-list');
+          list.innerHTML = '';
+          var pending = [];
+          snap.forEach(function(doc){ if (!doc.data().read) pending.push({ id: doc.id, data: doc.data() }); });
+          if (pending.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px">Aucune invitation en attente.</div>';
             return;
           }
-          fd._emptyRetries = 0;
+          pending.forEach(function(n) {
+            var row = document.createElement('div');
+            row.className = 'live-card';
+            row.innerHTML = '<div class="live-card-info"><div class="live-card-title">🎤 Invitation à parler</div><div class="live-card-sub">Toucher pour rejoindre</div></div>';
+            row.addEventListener('click', function(){ if (n.data.liveId) joinLive(n.data.liveId, false); });
+            list.appendChild(row);
+          });
+        }).catch(function(){});
+    }
 
-          /* FIX: ne masquer le message vide QUE si le fil contient vraiment des
-             posts (sinon un appel reset=false avec un snap encore vide pouvait
-             le masquer par erreur — voir le commentaire ci-dessus). */
-          var feedEmpty = q('feed-empty');
-          if (feedEmpty) feedEmpty.style.display = 'none';
+    function renderMyScheduledCard(live) {
+      var d = live.data;
+      var card = document.createElement('div');
+      card.className = 'live-card';
+      card.innerHTML =
+        '<div class="live-card-info">' +
+          '<div class="live-card-title">' + SIS.utils.escHtml(d.title||'') + '</div>' +
+          '<div class="live-card-sub">' + formatScheduledTime(d.scheduledFor) + '</div>' +
+        '</div>' +
+        '<div class="live-card-stats"><button class="btn-ghost btn-sm danger-btn" data-cancel="' + live.id + '">Annuler</button></div>';
+      card.querySelector('[data-cancel]').addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (!window.confirm('Annuler ce live programmé ?')) return;
+        SIS.live.cancelScheduledLive(live.id).then(function(){ SIS.toast.success('Live annulé'); loadMyLives(); });
+      });
+      return card;
+    }
 
-          /* ALGO: on re-classe le pool par score puis on ne garde que les
-             PAGE_SIZE meilleurs de ce lot. */
-          var docsToRender = filteredDocs;
-          if (docsToRender.length > 0) {
-            docsToRender = docsToRender.slice().sort(function (a, b) {
-              return scorePost(b) - scorePost(a);
-            }).slice(0, fd.PAGE_SIZE);
+    function renderHistoryCard(live) {
+      var d = live.data;
+      var card = document.createElement('div');
+      card.className = 'live-card';
+      card.innerHTML =
+        '<div class="live-card-info">' +
+          '<div class="live-card-title">' + SIS.utils.escHtml(d.title||'') + '</div>' +
+          '<div class="live-card-sub">Pic : ' + SIS.utils.formatCount(d.peakListenersCount||0) + ' auditeurs</div>' +
+        '</div>';
+      return card;
+    }
+
+    /* ── CRÉER UN LIVE ── */
+    function openCreateLive() {
+      q('live-title-input').value = '';
+      q('live-desc-input').value = '';
+      fd.createTheme = 'libre';
+      fd.createVisibility = 'public';
+      fd.createTiming = 'now';
+      qsa('.live-theme-opt').forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-theme')==='libre'); });
+      qsa('#live-visibility-toggle .live-toggle-opt').forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-vis')==='public'); });
+      qsa('#live-timing-toggle .live-toggle-opt').forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-timing')==='now'); });
+      q('live-schedule-field').style.display = 'none';
+      q('btn-create-live-confirm').textContent = 'Démarrer maintenant';
+      checkCreateLiveReady();
+      showOverlay('create-live-overlay');
+    }
+
+    function checkCreateLiveReady() {
+      var title = q('live-title-input').value.trim();
+      var ready = title.length > 0;
+      if (fd.createTiming === 'scheduled') ready = ready && !!q('live-schedule-input').value;
+      q('btn-create-live-confirm').disabled = !ready;
+    }
+
+    function confirmCreateLive() {
+      var title = q('live-title-input').value.trim();
+      if (!title) return;
+      var btn = q('btn-create-live-confirm');
+      btn.disabled = true; btn.textContent = 'Création…';
+
+      SIS.authHelper.getProfile(user.uid).then(function(profile) {
+        var opts = {
+          title: title,
+          description: q('live-desc-input').value.trim(),
+          theme: fd.createTheme,
+          visibility: fd.createVisibility,
+          hostPseudo: profile ? profile.pseudo : '?',
+          hostPhotoUrl: profile ? profile.photoUrl : null
+        };
+        if (fd.createTiming === 'scheduled') opts.scheduledFor = q('live-schedule-input').value;
+        return SIS.live.createLive(opts);
+      }).then(function(result) {
+        hideOverlay('create-live-overlay');
+        btn.disabled = false; btn.textContent = 'Démarrer maintenant';
+        if (fd.createTiming === 'scheduled') {
+          SIS.toast.success('Live programmé !');
+          switchTab('mylives');
+        } else {
+          joinLive(result.id, true);
+        }
+      }).catch(function(err) {
+        btn.disabled = false; btn.textContent = 'Démarrer maintenant';
+        SIS.toast.error(err.message || 'Impossible de créer le live');
+      });
+    }
+
+    /* ── REJOINDRE / SALLE DE LIVE ──
+       Écran de consentement (voix entendue, modération active, logs
+       conservés) affiché une seule fois par session, comme prévu au plan. */
+    var CONSENT_KEY = 'sis_live_consent_shown';
+
+    function joinLive(liveId, asHost) {
+      if (!asHost && !sessionStorage.getItem(CONSENT_KEY)) {
+        if (!window.confirm('Tu vas entendre des voix en direct. Un bot de modération est actif et des logs sont conservés. Continuer ?')) return;
+        sessionStorage.setItem(CONSENT_KEY, '1');
+      }
+      openLiveRoom(liveId, !!asHost);
+    }
+
+    function openLiveRoom(liveId, asHost) {
+      fd.currentLiveId = liveId;
+      fd.isHost = asHost;
+      fd.micMuted = true;
+      showOverlay('live-room-overlay');
+      q('live-error-banner').style.display = 'none';
+
+      SIS.authHelper.getProfile(user.uid).then(function(profile) {
+        var myPseudo = profile ? profile.pseudo : '?';
+
+        fd.unsubLiveDoc = SIS.db.collection('lives').doc(liveId).onSnapshot(function(doc) {
+          if (!doc.exists || doc.data().status === 'ended' || doc.data().status === 'cancelled') {
+            SIS.toast.info('Ce live est terminé');
+            leaveLiveRoom();
+            return;
           }
+          var d = doc.data();
+          q('live-room-title').textContent = d.title || 'Live';
+          var speakers = d.speakers || {};
+          fd.myRole = speakers[user.uid] ? (speakers[user.uid].isHost ? 'host' : 'speaker') : 'listener';
+          renderSpeakers(speakers);
+          updateRoomControlsForRole();
+          q('btn-live-menu').style.display  = fd.myRole === 'host' ? 'flex' : 'none';
+          q('btn-live-queue').style.display = fd.myRole === 'host' ? 'flex' : 'none';
+        }, function(e){ console.error('[SIS.live] live doc err', e); });
 
-          var list = q('posts-list');
-          docsToRender.forEach(function (doc) {
-            var el = renderPost(doc);
+        fd.unsubQueue = SIS.live.listenToQueue(liveId, function(queue) {
+          fd.queueCount = queue.length;
+          var badge = q('live-queue-badge');
+          if (badge) { badge.textContent = queue.length; badge.style.display = queue.length ? 'flex' : 'none'; }
+          renderQueueList(queue);
+        });
+
+        fd.unsubChat = SIS.live.listenToLiveChat(liveId, function(msgs) {
+          var list = q('live-chat-list');
+          list.innerHTML = '';
+          msgs.forEach(function(m) {
+            var el = document.createElement('div');
+            el.className = 'live-chat-msg';
+            el.innerHTML = '<span class="live-chat-pseudo">' + SIS.utils.escHtml(m.data.pseudo||'?') + '</span>' + SIS.utils.parseText(m.data.text||'');
             list.appendChild(el);
           });
-        })
-        .catch(function (err) {
-          fd.loading = false;
-          if (q('feed-skeletons')) q('feed-skeletons').style.display = 'none';
-          if (q('feed-loader')) q('feed-loader').style.display = 'none';
-          console.warn('Feed load error:', err);
-          /* Sécurité : il n'y a plus qu'une seule forme de requête possible
-             (un orderBy seul, sans where) -> en théorie plus besoin d'aucun
-             index composite. Si une erreur survient malgré tout (réseau,
-             permissions Firestore...), on l'affiche simplement. */
-          if (err.code === 'failed-precondition' || (err.message && err.message.indexOf('index') > -1)) {
-            if (fd._indexFallbackDone) {
-              SIS.toast && SIS.toast.error('Chargement impossible', 'Réessaie plus tard.');
-              return;
-            }
-            fd._indexFallbackDone = true;
-            fd.lastDoc = null;
-            fd.noMore = false;
-            SIS.toast && SIS.toast.info('Chargement simplifié', 'Nouvelle tentative...');
-            loadPosts(true);
-          } else {
-            SIS.toast && SIS.toast.error('Erreur de chargement', 'Réessaie plus tard.');
-          }
+          list.scrollTop = list.scrollHeight;
         });
+
+        SIS.live.setLivePresence(liveId, asHost ? 'host' : 'listener');
+        fd.unwatchListeners = SIS.live.watchLiveListenerCount(liveId, function(count) {
+          var metaEl = q('live-room-meta');
+          if (metaEl) metaEl.innerHTML = '<span class="live-dot"></span>' + count + ' auditeur' + (count>1?'s':'');
+        });
+
+        SIS.live.joinChannel(liveId, user.uid, asHost ? 'host' : 'listener').then(function() {
+          SIS.live.onRemoteSpeakers(function(){}, function(){});
+          if (asHost) return SIS.live.publishMic().then(function(){ fd.micMuted = false; });
+        }).then(function() {
+          updateMicButtonUI();
+        }).catch(function(err) {
+          console.error('[SIS.live] Connexion audio échouée:', err);
+          q('live-error-banner').style.display = 'block';
+        });
+
+        if (!asHost) SIS.live.joinAsListener(liveId);
+      });
     }
 
-    /* ── INFINITE SCROLL ── */
-    function initInfiniteScroll() {
-      if (!window.IntersectionObserver) return;
-      var sentinel = q('feed-sentinel');
-      var obs = new IntersectionObserver(function(entries) {
-        if (entries[0].isIntersecting && !fd.loading && !fd.noMore) {
-          q('feed-loader').style.display = 'flex';
-          loadPosts(false);
+    function renderSpeakers(speakers) {
+      var grid = q('live-speakers-grid');
+      grid.innerHTML = '';
+      Object.keys(speakers).forEach(function(uid) {
+        var s = speakers[uid];
+        var card = document.createElement('div');
+        card.className = 'live-speaker-card';
+        card.innerHTML =
+          '<div class="live-speaker-ring' + (s.isHost ? ' host-ring' : '') + '">' +
+            SIS.renderAvatar({ pseudo: s.pseudo||'?', size:'md', gradient: SIS.utils.pseudoToGradient(s.pseudo||'') }) +
+            (s.muted ? '<div class="live-speaker-mute-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2"/></svg></div>' : '') +
+          '</div>' +
+          '<div class="live-speaker-name">' + SIS.utils.escHtml(s.pseudo||'?') + '</div>' +
+          (s.isHost ? '<div class="live-speaker-host-tag">HÔTE</div>' : '');
+        if (fd.myRole === 'host' && uid !== user.uid) {
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', function(){ openSpeakerActions(uid, s.pseudo); });
         }
-      }, { threshold: 0.5 });
-      obs.observe(sentinel);
+        grid.appendChild(card);
+      });
     }
 
-    /* ── STORIES ── */
+    function openSpeakerActions(uid, pseudo) {
+      var action = window.prompt((pseudo||'ce speaker') + ' — taper "mute", "unmute" ou "kick"');
+      if (action === 'mute') SIS.live.muteSpeakerFlag(fd.currentLiveId, uid, true);
+      else if (action === 'unmute') SIS.live.muteSpeakerFlag(fd.currentLiveId, uid, false);
+      else if (action === 'kick') SIS.live.kickSpeaker(fd.currentLiveId, uid);
+    }
+
+    function renderQueueList(queue) {
+      var list = q('live-queue-list');
+      if (!list) return;
+      list.innerHTML = '';
+      q('live-queue-empty').style.display = queue.length === 0 ? 'block' : 'none';
+      queue.forEach(function(item) {
+        var row = document.createElement('div');
+        row.className = 'live-queue-item';
+        row.innerHTML =
+          '<span class="live-queue-name">' + SIS.utils.escHtml(item.data.pseudo||'?') + '</span>' +
+          '<div class="live-queue-actions">' +
+            '<button data-act="accept" aria-label="Accepter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>' +
+            '<button data-act="decline" aria-label="Refuser"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
+          '</div>';
+        row.querySelector('[data-act="accept"]').addEventListener('click', function(){
+          SIS.live.acceptSpeaker(fd.currentLiveId, item.uid, item.data.pseudo);
+        });
+        row.querySelector('[data-act="decline"]').addEventListener('click', function(){
+          SIS.live.declineSpeaker(fd.currentLiveId, item.uid);
+        });
+        list.appendChild(row);
+      });
+    }
+
+    function updateRoomControlsForRole() {
+      var reqBtn = q('btn-request-speak');
+      var micBtn = q('btn-mic-toggle');
+      if (fd.myRole === 'listener') {
+        reqBtn.style.display = 'flex';
+        micBtn.style.display = 'none';
+      } else {
+        reqBtn.style.display = 'none';
+        micBtn.style.display = 'flex';
+      }
+    }
+
+    function updateMicButtonUI() {
+      var btn = q('btn-mic-toggle');
+      btn.classList.toggle('is-muted', fd.micMuted);
+      btn.classList.toggle('muted-off', !fd.micMuted);
+    }
+
+    function leaveLiveRoom() {
+      if (fd.unsubLiveDoc) { fd.unsubLiveDoc(); fd.unsubLiveDoc = null; }
+      if (fd.unsubQueue)   { fd.unsubQueue(); fd.unsubQueue = null; }
+      if (fd.unsubChat)    { fd.unsubChat(); fd.unsubChat = null; }
+      if (fd.unwatchListeners) { fd.unwatchListeners(); fd.unwatchListeners = null; }
+      if (fd.currentLiveId) {
+        SIS.live.clearLivePresence(fd.currentLiveId);
+        if (fd.myRole === 'listener') SIS.live.leaveAsListener(fd.currentLiveId);
+      }
+      SIS.live.leaveChannel().catch(function(){});
+      hideOverlay('live-room-overlay');
+      fd.currentLiveId = null;
+      fd.myRole = null;
+    }
+
+    /* ── STORIES (préservé tel quel) ── */
     function loadStories() {
       if (fd.unsubStories) { fd.unsubStories(); fd.unsubStories = null; }
-
-      /* Stories des dernières 24h */
       var expiry = new Date(Date.now() - 86400000);
       fd.unsubStories = SIS.db.collection('stories')
         .where('createdAt', '>', firebase.firestore.Timestamp.fromDate(expiry))
@@ -1348,28 +1470,14 @@
         .onSnapshot(function(snap) {
           var list = q('stories-list');
           list.innerHTML = '';
-
-          /* Mon avatar en premier */
-          SIS.authHelper.getProfile(user.uid).then(function(profile) {
-            if (profile && q('avatar-initials')) {
-              /* Met à jour l'avatar du bouton "ma story" dans la topbar profil */
-            }
-          });
-
           snap.forEach(function(doc) {
             var d = doc.data();
-            if (d.authorUid === user.uid) return; /* La propre story est dans le btn */
-
-            /* FIX: l'ancien bloc 'item' utilisait .replace('</div>','') qui supprimait
-               le premier </div> trouvé (mauvais div), produisant du HTML invalide.
-               Ce bloc était du code mort (item n'était jamais appendé). Supprimé. */
+            if (d.authorUid === user.uid) return;
             var ring = document.createElement('div');
             ring.className = 'story-item';
             ring.setAttribute('data-story-id', doc.id);
-
             var ringWrap = document.createElement('div');
             ringWrap.className = 'story-ring' + (d.seenBy && user && d.seenBy[user.uid] ? ' seen' : '');
-
             var av = document.createElement('div');
             av.className = 'story-av';
             if (d.authorPhoto) {
@@ -1386,48 +1494,36 @@
               av.style.fontWeight = '700';
               av.style.fontSize = '16px';
             }
-
             ringWrap.appendChild(av);
             ring.appendChild(ringWrap);
-
             var lbl = document.createElement('span');
             lbl.className = 'story-label';
             lbl.textContent = SIS.utils.truncate(d.authorPseudo||'?', 8);
             ring.appendChild(lbl);
-
             ring.addEventListener('click', function() { openStoryViewer(doc.id, d); });
             list.appendChild(ring);
           });
         }, function(err) { console.warn('Stories err:', err); });
     }
 
-    /* ── STORY VIEWER ── */
     function openStoryViewer(storyId, data) {
       var viewer = q('story-viewer');
       viewer.style.display = 'flex';
-
-      /* Avatar */
       var avZone = q('story-viewer-av');
       avZone.innerHTML = SIS.renderAvatar({
-        pseudo: data.authorPseudo||'?',
-        photoUrl: data.authorPhoto||null,
-        certified: data.authorCertified||false,
-        size: 'sm',
+        pseudo: data.authorPseudo||'?', photoUrl: data.authorPhoto||null,
+        certified: data.authorCertified||false, size: 'sm',
         gradient: SIS.utils.pseudoToGradient(data.authorPseudo||'')
       });
       SIS.bindAvatarClicks(avZone);
-
       q('story-viewer-pseudo').textContent = data.authorPseudo || '?';
       q('story-viewer-time').textContent = SIS.utils.timeAgo(data.createdAt);
-
-      /* Contenu */
       var content = q('story-content');
       content.innerHTML = '';
       var bg = document.createElement('div');
       bg.className = 'story-bg';
       bg.style.background = data.bg || 'linear-gradient(135deg,#5B8EF4,#8B5CF6)';
       content.appendChild(bg);
-
       if (data.imageUrl) {
         var img = document.createElement('img');
         img.src = SIS.cloudinary.url(data.imageUrl, 'story');
@@ -1435,7 +1531,6 @@
         img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1';
         content.appendChild(img);
       }
-
       if (data.text) {
         var txt = document.createElement('div');
         txt.className = 'story-text-display';
@@ -1443,772 +1538,28 @@
         txt.style.zIndex = '2';
         content.appendChild(txt);
       }
-
-      /* Progress bar */
       var pbars = q('story-progress-bars');
       pbars.innerHTML = '<div class="story-progress-bar"><div class="story-progress-fill active" style="animation-duration:5s"></div></div>';
-
-      /* Marquer comme vu */
       SIS.db.collection('stories').doc(storyId).update({
         ['seenBy.' + user.uid]: true,
         viewCount: firebase.firestore.FieldValue.increment(1)
       }).catch(function(){});
-
-      /* Auto-close après 5s */
-      var autoClose = setTimeout(function() {
-        q('story-viewer').style.display = 'none';
-      }, 5200);
-
-      q('story-close').onclick = function() {
-        clearTimeout(autoClose);
-        q('story-viewer').style.display = 'none';
-      };
+      var autoClose = setTimeout(function() { q('story-viewer').style.display = 'none'; }, 5200);
+      q('story-close').onclick = function() { clearTimeout(autoClose); q('story-viewer').style.display = 'none'; };
     }
 
-    /* ── COMPOSER ── */
-    function openComposer() {
-      showOverlay('post-composer-overlay');
-      q('post-text') && q('post-text').focus();
-    }
-
-    function closeComposer() {
-      hideOverlay('post-composer-overlay');
-      resetComposer();
-    }
-
-    function resetComposer() {
-      fd.postType   = 'csdpm';
-      fd.identity   = 'anon';
-      fd.mediaFile  = null;
-      fd.mediaGifUrl= null;
-
-      qsa('.ctype').forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-type')==='csdpm'); });
-      qsa('.identity-opt', q('post-composer')).forEach(function(o){ o.classList.toggle('active', o.getAttribute('data-identity')==='anon'); });
-      qsa('.composer-field').forEach(function(f){ f.style.display='none'; });
-      var tf = q('field-text'); if(tf) tf.style.display='block';
-      var pt = q('post-text'); if(pt){ pt.value=''; }
-      var cc = q('char-count'); if(cc) cc.textContent='0';
-      var pub = q('btn-publish'); if(pub) pub.disabled=true;
-    }
-
-    function switchComposerType(type) {
-      fd.postType = type;
-      qsa('.ctype').forEach(function(c){ c.classList.toggle('active', c.getAttribute('data-type')===type); });
-
-      var allFields = ['field-text','field-poll','field-media'];
-      allFields.forEach(function(f){ var e=q(f); if(e) e.style.display='none'; });
-
-      var map = { csdpm:'field-text', poll:'field-poll', media:'field-media' };
-      var target = map[type] || 'field-text';
-      var te = q(target); if(te) te.style.display='block';
-
-      checkPublishReady();
-    }
-
-    function checkPublishReady() {
-      var ready = false;
-      var type = fd.postType;
-
-      if (type==='csdpm') {
-        ready = (q('post-text').value.trim().length > 0);
-      } else if (type==='poll') {
-        var pq = q('poll-question');
-        var popts = qsa('.poll-opt-input');
-        ready = pq && pq.value.trim().length > 0 &&
-          popts.length >= 2 && popts.every(function(o){ return o.value.trim().length>0; });
-      } else if (type==='media') {
-        ready = fd.mediaFile !== null || fd.mediaGifUrl !== null;
-      }
-
-      var pub = q('btn-publish'); if(pub) pub.disabled = !ready;
-    }
-
-    /* ── PUBLIER ── */
-    function publish() {
-      if (!SIS.security.rateLimit('publish', 5)) {
-        SIS.toast.warning('Trop vite', 'Attends un peu entre chaque publication.');
-        return;
-      }
-
-      /* RETIRÉ sur demande : Le Pacte (réagir avant de publier). On
-         publie directement. */
-      doPublish();
-    }
-
-    function doPublish() {
-      var type = fd.postType;
-      var identity = fd.identity;
-      var now = firebase.firestore.FieldValue.serverTimestamp();
-
-      /* Données de base */
-      var postData = {
-        type:            type,
-        identity:        identity,
-        authorUid:       identity !== 'anon' ? user.uid : null,
-        /* FIX: la ternaire 'identity !== 'anon' ? null : null' retournait null dans
-           les DEUX cas — l'auteur n'était jamais identifié. Corrigé : null par défaut,
-           la valeur est renseignée juste après par profilePromise si besoin. */
-        authorPseudo:    null,
-        authorPhoto:     null,
-        authorCertified: false,
-        authorCountry:   null,
-        /* RETIRÉ : mood (tag d'humeur, plus de filtre). RÉINTÉGRÉ sur
-           nouvelle demande : reactions, au format {emoji: [uids]} (pas un
-           simple compteur) pour qu'un like ne puisse jamais se désynchroniser
-           de la réalité — le nombre affiché est toujours juste la longueur
-           du tableau, jamais un compteur qui dérive. */
-        reactions:       { '🤣': [], '❤️': [], '😡': [], '🎊': [] },
-        hidden:          false,
-        reportCount:     0,
-        commentsCount:   0,
-        echoCount:       0,
-        createdAt:       now
-      };
-
-      /* Si identité révélée, ajouter les infos */
-      if (identity === 'name' || identity === 'mystery') {
-        postData.authorUid = user.uid;
-        /* On va chercher le profil */
-      }
-
-      /* Contenu selon type */
-      if (type==='csdpm') {
-        postData.text = q('post-text').value.trim();
-      } else if (type==='poll') {
-        postData.question = q('poll-question').value.trim();
-        postData.options  = qsa('.poll-opt-input').map(function(i){ return {text:i.value.trim(), votes:0}; });
-      }
-
-      /* Récupérer profil si besoin */
-      var profilePromise = (identity === 'name' || identity === 'mystery')
-        ? SIS.authHelper.getProfile(user.uid)
-        : Promise.resolve(null);
-
-      q('btn-publish').disabled = true;
-      var loader = q('btn-publish');
-      loader.textContent = '…';
-
-      profilePromise.then(function(profile) {
-        if (profile) {
-          if (identity === 'name') {
-            postData.authorPseudo    = profile.pseudo;
-            postData.authorPhoto     = profile.photoUrl;
-            postData.authorCertified = profile.certified || false;
-          } else if (identity === 'mystery') {
-            postData.authorPseudo = '🎭 Mystère';
-          }
-        }
-
-        /* Upload media si besoin */
-        if (type === 'media' && fd.mediaFile) {
-          return SIS.image.processAndUpload(fd.mediaFile, { type: 'post' })
-            .then(function(result) {
-              postData.mediaUrl = result.publicId;
-              postData.caption  = q('media-caption') ? q('media-caption').value.trim() : '';
-              return postData;
-            });
-        } else if (type === 'media' && fd.mediaGifUrl) {
-          postData.gifUrl  = fd.mediaGifUrl;
-          postData.caption = q('media-caption') ? q('media-caption').value.trim() : '';
-          return postData;
-        }
-        return postData;
-      })
-      .then(function(data) {
-        /* FIX FONCTIONNALITÉ MANQUANTE: le champ 'hashtags' n'était JAMAIS
-           rempli à la publication, alors que la recherche par hashtag dans
-           Découvrir le lit via .where('hashtags','array-contains',...) ->
-           cette recherche ne retournait donc jamais aucun résultat, pour
-           AUCUN hashtag, jamais. On extrait maintenant les hashtags du texte
-           (et de la question pour les battles/sondages) avant l'écriture. */
-        var textForTags = [data.text, data.question, data.caption].filter(Boolean).join(' ');
-        var matches = textForTags.match(/#[a-zA-Z0-9_\u00C0-\u024F]+/g) || [];
-        data.hashtags = matches.map(function(t){ return t.slice(1).toLowerCase(); }).slice(0, 10);
-        return SIS.db.collection('posts').add(data);
-      })
-      .then(function() {
-        SIS.toast.success(SIS.i18n.t('post_success'));
-        closeComposer();
-        loadPosts(true);
-        /* Incrémenter postsCount */
-        SIS.db.collection('users').doc(user.uid).update({
-          postsCount: firebase.firestore.FieldValue.increment(1)
-        }).catch(function(){});
-      })
-      .catch(function(err) {
-        console.warn('Publish error:', err);
-        SIS.toast.error(SIS.i18n.t('post_error'));
-        var pub = q('btn-publish');
-        if(pub){ pub.disabled=false; pub.textContent='Publier'; }
-      });
-    }
-
-    /* ── RÉACTIONS — RÉINTÉGRÉES sur nouvelle demande (🤣❤️😡🎊 uniquement) ──
-       FIX architecture : l'ancien système stockait un simple compteur
-       ('reactions.❤️': increment(1)), sans savoir QUI avait réagi. Plusieurs
-       clics rapides, un double-tap, ou un realod pouvaient désynchroniser ce
-       qui s'affiche de la réalité ("le compteur part en sucette"), et il
-       était impossible d'annuler sa réaction. Le nouveau système stocke un
-       tableau d'UIDs par emoji ({ '🤣': [uid1,uid2], ... }) : le nombre
-       affiché est TOUJOURS la longueur réelle du tableau, jamais un
-       compteur qui dérive. Un seul emoji actif par utilisateur — réagir
-       avec un autre emoji retire automatiquement l'ancien. */
-    function handleReaction(postId, emoji, btnEl) {
-      if (!user) { window.location.href='auth.html'; return; }
-      if (!SIS.security.rateLimit('react', 20)) return;
-
-      var bar = btnEl ? btnEl.closest('.reaction-bar') : null;
-      var wasActive = btnEl && btnEl.classList.contains('active');
-
-      var postRef = SIS.db.collection('posts').doc(postId);
-      var update = {};
-
-      if (wasActive) {
-        /* Toggle off : retirer sa réaction */
-        update['reactions.' + emoji] = firebase.firestore.FieldValue.arrayRemove(user.uid);
-      } else {
-        /* Ajouter la nouvelle réaction, et retirer des AUTRES emojis (un
-           seul actif par utilisateur) */
-        update['reactions.' + emoji] = firebase.firestore.FieldValue.arrayUnion(user.uid);
-        ['🤣','❤️','😡','🎊'].forEach(function(e) {
-          if (e !== emoji) update['reactions.' + e] = firebase.firestore.FieldValue.arrayRemove(user.uid);
-        });
-      }
-
-      /* Mise à jour optimiste de l'UI : on connaît exactement le nouvel
-         état (pas une supposition), donc pas de risque de désync. */
-      if (bar) {
-        qsa('.reaction-btn', bar).forEach(function(b) {
-          var bEmoji = b.getAttribute('data-emoji');
-          var countEl = b.querySelector('.reaction-count');
-          var count = parseInt(countEl.textContent || '0', 10) || 0;
-          if (bEmoji === emoji) {
-            if (wasActive) { count = Math.max(0, count - 1); b.classList.remove('active'); }
-            else { count = count + 1; b.classList.add('active'); }
-          } else if (!wasActive && b.classList.contains('active')) {
-            /* On avait réagi avec un AUTRE emoji -> il se retire */
-            count = Math.max(0, count - 1);
-            b.classList.remove('active');
-          }
-          countEl.textContent = count > 0 ? count : '';
-        });
-      }
-
-      postRef.update(update).catch(function(err) {
-        console.warn('Reaction err', err);
-        SIS.toast.error('Erreur', 'Réessaie plus tard.');
-      });
-
-      /* Notifier l'auteur (sauf si on retire sa réaction) */
-      if (!wasActive) {
-        postRef.get().then(function(doc) {
-          if (doc.exists && doc.data().authorUid && doc.data().authorUid !== user.uid) {
-            SIS.notifs.push(doc.data().authorUid, SIS.notifs.TYPES.LIKE, {
-              fromPseudo: null,
-              postId: postId,
-              emoji: emoji
-            });
-          }
-        });
-      }
-    }
-
-    /* ── VOTE BATTLE / POLL ── */
-    function handleVote(postId, optIdx, type) {
-      if (!SIS.security.rateLimit('vote', 10)) return;
-      var voteKey = 'vote_' + postId;
-      if (localStorage.getItem(voteKey)) {
-        SIS.toast.info('Déjà voté', 'Tu as déjà voté sur ce ' + type + '.');
-        return;
-      }
-      localStorage.setItem(voteKey, optIdx);
-      var update = {};
-      update['options.' + optIdx + '.votes'] = firebase.firestore.FieldValue.increment(1);
-      SIS.db.collection('posts').doc(postId).update(update)
-        .then(function() { loadPosts(true); })
-        .catch(function(){});
-    }
-
-    /* ── COMMENTAIRES ── */
-    function openComments(postId) {
-      fd.commentPostId = postId;
-      showOverlay('comments-overlay');
-
-      /* Aperçu du post */
-      SIS.db.collection('posts').doc(postId).get().then(function(doc) {
-        if (!doc.exists) return;
-        var d = doc.data();
-        var prev = q('comment-post-preview');
-        if (prev) prev.innerHTML = '<div style="font-size:12px;color:var(--text2);line-height:1.5">' +
-          SIS.utils.parseText(SIS.utils.truncate(d.text||d.question||'', 100)) + '</div>';
-      });
-
-      /* Avatar user pour le composer */
-      SIS.authHelper.getProfile(user.uid).then(function(profile) {
-        var avZone = q('comment-my-av');
-        if (avZone && profile) {
-          avZone.innerHTML = SIS.renderAvatar({
-            pseudo: profile.pseudo||'?',
-            photoUrl: profile.photoUrl||null,
-            certified: profile.certified||false,
-            size: 'sm',
-            gradient: SIS.utils.pseudoToGradient(profile.pseudo||'')
-          });
-        }
-      });
-
-      /* Charger commentaires */
-      var list = q('comments-list');
-      list.innerHTML = '<div class="skeleton" style="height:50px;border-radius:10px;margin-bottom:8px"></div><div class="skeleton" style="height:50px;border-radius:10px"></div>';
-
-      SIS.db.collection('posts').doc(postId).collection('comments')
-        .orderBy('createdAt','asc').limit(30).get()
-        .then(function(snap) {
-          list.innerHTML = '';
-          if (snap.empty) {
-            list.innerHTML = '<p style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sois le premier à commenter !</p>';
-            return;
-          }
-          snap.forEach(function(doc) {
-            var c = doc.data();
-            var item = document.createElement('div');
-            item.className = 'comment-item';
-            item.innerHTML =
-              SIS.renderAvatar({ pseudo: c.pseudo||'?', photoUrl: c.photoUrl||null, certified: c.certified||false, size:'xs', gradient: SIS.utils.pseudoToGradient(c.pseudo||'') }) +
-              '<div class="comment-bubble">' +
-                '<div class="comment-meta">' +
-                  '<span class="comment-pseudo">' + SIS.utils.escHtml(c.pseudo||'Anonyme') + '</span>' +
-                  '<span class="comment-time">' + SIS.utils.timeAgo(c.createdAt) + '</span>' +
-                '</div>' +
-                '<div class="comment-text">' + SIS.utils.parseText(c.text||'') + '</div>' +
-              '</div>';
-            list.appendChild(item);
-          });
-          list.scrollTop = list.scrollHeight;
-        });
-    }
-
-    function sendComment() {
-      var input = q('comment-input');
-      var text  = input.value.trim();
-      if (!text || !fd.commentPostId) return;
-      if (!SIS.security.rateLimit('comment', 10)) {
-        SIS.toast.warning('Trop vite !');
-        return;
-      }
-
-      SIS.authHelper.getProfile(user.uid).then(function(profile) {
-        return SIS.db.collection('posts').doc(fd.commentPostId)
-          .collection('comments').add({
-            text:      text,
-            pseudo:    profile ? profile.pseudo : null,
-            photoUrl:  profile ? profile.photoUrl : null,
-            certified: profile ? profile.certified : false,
-            authorUid: user.uid,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          })
-          .then(function() {
-            return SIS.db.collection('posts').doc(fd.commentPostId).update({
-              commentsCount: firebase.firestore.FieldValue.increment(1)
-            });
-          })
-          .then(function() {
-            input.value = '';
-            openComments(fd.commentPostId); /* Refresh */
-            /* Notif auteur */
-            SIS.db.collection('posts').doc(fd.commentPostId).get().then(function(doc){
-              if(doc.exists && doc.data().authorUid && doc.data().authorUid !== user.uid){
-                SIS.notifs.push(doc.data().authorUid, SIS.notifs.TYPES.COMMENT, {
-                  fromPseudo: profile ? profile.pseudo : null,
-                  postId: fd.commentPostId
-                });
-              }
-            });
-          });
-      }).catch(function(){ SIS.toast.error('Erreur envoi commentaire'); });
-    }
-
-    /* ── ECHO ── */
-    function openEcho(postId) {
-      fd.echoPostId = postId;
-      showOverlay('echo-overlay');
-
-      SIS.db.collection('posts').doc(postId).get().then(function(doc) {
-        if (!doc.exists) return;
-        var d = doc.data();
-        var prev = q('echo-preview');
-        if (prev) prev.innerHTML = '<div style="font-size:12px;color:var(--text2)">' +
-          SIS.utils.parseText(SIS.utils.truncate(d.text||d.question||'',100)) + '</div>';
-      });
-    }
-
-    function confirmEcho() {
-      if (!fd.echoPostId) return;
-      var echoText = q('echo-text').value.trim();
-      var identity = qs('.echo-sheet .identity-opt.active');
-      var echoIdentity = identity ? identity.getAttribute('data-identity') : 'anon';
-
-      SIS.db.collection('posts').doc(fd.echoPostId).get().then(function(orig) {
-        if (!orig.exists) return;
-        var od = orig.data();
-
-        var profilePromise = echoIdentity !== 'anon'
-          ? SIS.authHelper.getProfile(user.uid)
-          : Promise.resolve(null);
-
-        profilePromise.then(function(profile) {
-          return SIS.db.collection('posts').add({
-            type:              'echo_' + od.type,
-            identity:          echoIdentity,
-            authorUid:         echoIdentity !== 'anon' ? user.uid : null,
-            authorPseudo:      echoIdentity === 'name' && profile ? profile.pseudo : (echoIdentity === 'mystery' ? '🎭' : null),
-            authorPhoto:       echoIdentity === 'name' && profile ? profile.photoUrl : null,
-            authorCertified:   echoIdentity === 'name' && profile ? profile.certified : false,
-            echoOf:            fd.echoPostId,
-            echoOriginalText:  od.text || od.question || '',
-            echoOriginalPseudo:od.authorPseudo || 'Anonyme',
-            text:              echoText,
-            hidden:            false,
-            reportCount:       0,
-            commentsCount:     0,
-            echoCount:         0,
-            reactions:         {},
-            createdAt:         firebase.firestore.FieldValue.serverTimestamp()
-          });
-        }).then(function() {
-          return SIS.db.collection('posts').doc(fd.echoPostId).update({
-            echoCount: firebase.firestore.FieldValue.increment(1)
-          });
-        }).then(function() {
-          hideOverlay('echo-overlay');
-          SIS.toast.success('Echo publié !');
-          loadPosts(true);
-        }).catch(function(){ SIS.toast.error('Erreur echo'); });
-      });
-    }
-
-    /* ── OPTIONS POST ── */
-    function openPostOptions(postId) {
-      SIS.db.collection('posts').doc(postId).get().then(function(doc) {
-        if (!doc.exists) return;
-        var d = doc.data();
-        var isOwn = d.authorUid === user.uid;
-        var list = q('post-options-list');
-        list.innerHTML = '';
-
-        var opts = [];
-        opts.push({ icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>', label:'Partager', action:'share' });
-        opts.push({ icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>', label:'Copier le lien', action:'copy' });
-
-        if (isOwn) {
-          opts.push({ icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>', label:'Supprimer', action:'delete', danger:true });
-        } else {
-          opts.push({ icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>', label:'Signaler', action:'report', danger:true });
-        }
-
-        opts.forEach(function(opt) {
-          var item = document.createElement('div');
-          item.className = 'post-option-item' + (opt.danger ? ' danger' : '');
-          item.innerHTML = opt.icon + '<span>' + opt.label + '</span>';
-          item.addEventListener('click', function() {
-            hideOverlay('post-options-overlay');
-            if (opt.action === 'share') {
-              SIS.utils.share({ title: 'Post SIS', url: window.location.origin + '/feed.html?post=' + postId });
-            } else if (opt.action === 'copy') {
-              SIS.utils.copyToClipboard(window.location.origin + '/feed.html?post=' + postId)
-                .then(function(){ SIS.toast.success(SIS.i18n.t('copy_success')); });
-            } else if (opt.action === 'delete') {
-              SIS.db.collection('posts').doc(postId).update({ hidden: true })
-                .then(function(){ SIS.toast.success('Post supprimé'); loadPosts(true); });
-            } else if (opt.action === 'report') {
-              SIS.security.report(d.authorUid||'', postId, 'posts', 'Contenu inapproprié')
-                .then(function(){ SIS.toast.success(SIS.i18n.t('report_sent')); });
-            }
-          });
-          list.appendChild(item);
-        });
-
-        /* Separateur + Annuler */
-        var cancel = document.createElement('div');
-        cancel.className = 'post-option-item';
-        cancel.innerHTML = '<span style="color:var(--muted)">Annuler</span>';
-        cancel.addEventListener('click', function(){ hideOverlay('post-options-overlay'); });
-        list.appendChild(cancel);
-
-        showOverlay('post-options-overlay');
-      });
-    }
-
-    /* ── CONFESSION ROULETTE ── */
-    function openRoulette() {
-      showOverlay('roulette-overlay');
-      fd.rouletteIdx = 0;
-      /* FIX: where(hidden)+orderBy(createdAt) sur champs différents
-         nécessite un index composite -> requête en échec silencieux. */
-      SIS.db.collection('posts')
-        .orderBy('createdAt','desc').limit(30).get()
-        .then(function(snap) {
-          fd.roulettePosts = snap.docs.filter(function(doc){ return !doc.data().hidden; });
-          showRoulettePost();
-        })
-        .catch(function(err) {
-          console.warn('Roulette load err', err);
-          fd.roulettePosts = [];
-          SIS.toast && SIS.toast.error('Erreur', 'Impossible de charger la roulette.');
-        });
-    }
-
-    function showRoulettePost() {
-      if (fd.roulettePosts.length === 0) return;
-      var idx = Math.floor(Math.random() * fd.roulettePosts.length);
-      var doc = fd.roulettePosts[idx];
-      var wrap = q('roulette-post-wrap');
-      if (wrap) {
-        wrap.innerHTML = '';
-        wrap.appendChild(renderPost(doc));
-        SIS.bindAvatarClicks(wrap);
-      }
-    }
-
-    /* ── GIF SEARCH (Tenor) ── */
-    var gifSearch = SIS.utils.debounce(function(query) {
-      if (!query) { q('gif-results').innerHTML = ''; return; }
-      var url = 'https://tenor.googleapis.com/v2/search?q=' + encodeURIComponent(query) +
-        '&key=' + fd.TENOR_KEY + '&limit=12&media_filter=gif';
-      fetch(url)
-        .then(function(r){ return r.json(); })
-        .then(function(data) {
-          var results = q('gif-results');
-          if (!results) return;
-          results.innerHTML = '';
-          (data.results || []).forEach(function(item) {
-            var gif = item.media_formats && item.media_formats.tinygif
-              ? item.media_formats.tinygif.url
-              : null;
-            if (!gif) return;
-            var el = document.createElement('div');
-            el.className = 'gif-item';
-            el.innerHTML = '<img src="' + gif + '" loading="lazy" alt="GIF">';
-            el.addEventListener('click', function() {
-              fd.mediaGifUrl = gif;
-              /* Preview */
-              var prev = q('media-preview');
-              if (prev) { prev.src=gif; prev.style.display='block'; }
-              checkPublishReady();
-              SIS.toast.success('GIF sélectionné !');
-            });
-            results.appendChild(el);
-          });
-        })
-        .catch(function(){ SIS.toast.error('Erreur recherche GIF'); });
-    }, 500);
-
-    /* ── BIND EVENTS ── */
-    function bindEvents() {
-      /* RETIRÉ sur demande : onglets (Global/Viral/CSDPM/Whispers/Battles/
-         Abonnements) et filtre d'humeur — fil unique pour tout le monde. */
-
-      /* Composer post — ouverture via bottom nav */
-      SIS.onPostClick = openComposer;
-      q('composer-close') && q('composer-close').addEventListener('click', closeComposer);
-
-      /* Types */
-      qsa('.ctype').forEach(function(ct) {
-        ct.addEventListener('click', function(){ switchComposerType(ct.getAttribute('data-type')); });
-      });
-
-      /* Identity */
-      qsa('.identity-opt', q('post-composer')).forEach(function(opt) {
-        opt.addEventListener('click', function() {
-          qsa('.identity-opt', q('post-composer')).forEach(function(o){ o.classList.remove('active'); });
-          opt.classList.add('active');
-          fd.identity = opt.getAttribute('data-identity');
-        });
-      });
-
-      /* Texte → check ready */
-      ['post-text','burn-text','battle-question','poll-question'].forEach(function(id) {
-        var el = q(id);
-        if (el) {
-          el.addEventListener('input', function() {
-            var cc = q('char-count');
-            if (cc && id==='post-text') cc.textContent = this.value.length;
-            checkPublishReady();
-          });
-        }
-      });
-
-      /* Ajouter option poll */
-      q('add-poll-opt') && q('add-poll-opt').addEventListener('click', function() {
-        var opts = qsa('.poll-opt-input');
-        if (opts.length >= 4) { SIS.toast.info('Maximum 4 options'); return; }
-        var inp = document.createElement('input');
-        inp.type = 'text'; inp.className = 'poll-opt-input';
-        inp.placeholder = 'Option ' + (opts.length + 1);
-        inp.maxLength = 80;
-        inp.addEventListener('input', checkPublishReady);
-        q('poll-options').appendChild(inp);
-      });
-
-      /* Media tabs */
-      qsa('.media-tab').forEach(function(t) {
-        t.addEventListener('click', function() {
-          qsa('.media-tab').forEach(function(x){ x.classList.remove('active'); });
-          t.classList.add('active');
-          fd.mediaMode = t.getAttribute('data-media');
-          q('media-image-zone').style.display = fd.mediaMode==='image' ? 'block' : 'none';
-          q('media-gif-zone').style.display   = fd.mediaMode==='gif'   ? 'block' : 'none';
-        });
-      });
-
-      /* Upload image media */
-      q('media-upload-zone') && q('media-upload-zone').addEventListener('click', function() {
-        q('media-file-input').click();
-      });
-      q('media-file-input') && q('media-file-input').addEventListener('change', function() {
-        var file = this.files && this.files[0];
-        if (!file) return;
-        fd.mediaFile = file;
-        /* Preview */
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          var prev = q('media-preview');
-          if (prev) { prev.src=e.target.result; prev.style.display='block'; }
-        };
-        reader.readAsDataURL(file);
-        checkPublishReady();
-      });
-
-      /* GIF search */
-      q('gif-search-input') && q('gif-search-input').addEventListener('input', function() {
-        gifSearch(this.value.trim());
-      });
-
-      /* Publier */
-      q('btn-publish') && q('btn-publish').addEventListener('click', publish);
-
-      /* RETIRÉ sur demande : sélection d'humeur dans le composer et
-         binding du Pacte (supprimés). */
-
-      /* Roulette */
-      q('btn-roulette') && q('btn-roulette').addEventListener('click', openRoulette);
-      q('roulette-close') && q('roulette-close').addEventListener('click', function(){ hideOverlay('roulette-overlay'); });
-      q('btn-roulette-next') && q('btn-roulette-next').addEventListener('click', showRoulettePost);
-
-      /* Commentaires */
-      q('comments-close') && q('comments-close').addEventListener('click', function(){ hideOverlay('comments-overlay'); });
-      q('comment-send') && q('comment-send').addEventListener('click', sendComment);
-      q('comment-input') && q('comment-input').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); sendComment(); } });
-
-      /* Echo */
-      q('btn-echo-confirm') && q('btn-echo-confirm').addEventListener('click', confirmEcho);
-      q('btn-echo-cancel') && q('btn-echo-cancel').addEventListener('click', function(){ hideOverlay('echo-overlay'); });
-      qsa('.echo-sheet .identity-opt').forEach(function(opt) {
-        opt.addEventListener('click', function() {
-          qsa('.echo-sheet .identity-opt').forEach(function(o){ o.classList.remove('active'); });
-          opt.classList.add('active');
-        });
-      });
-
-      /* Post options overlay backdrop */
-      q('post-options-overlay') && q('post-options-overlay').addEventListener('click', function(e){
-        if(e.target===this) hideOverlay('post-options-overlay');
-      });
-      q('comments-overlay') && q('comments-overlay').addEventListener('click', function(e){
-        if(e.target===this) hideOverlay('comments-overlay');
-      });
-      q('echo-overlay') && q('echo-overlay').addEventListener('click', function(e){
-        if(e.target===this) hideOverlay('echo-overlay');
-      });
-
-      /* Story add */
-      q('story-add-btn') && q('story-add-btn').addEventListener('click', function(){ showOverlay('story-composer-overlay'); });
-      q('story-composer-close') && q('story-composer-close').addEventListener('click', function(){ hideOverlay('story-composer-overlay'); });
-
-      /* Story bg picker */
-      qsa('.story-bg-opt').forEach(function(opt) {
-        opt.addEventListener('click', function() {
-          qsa('.story-bg-opt').forEach(function(o){ o.classList.remove('active'); });
-          opt.classList.add('active');
-          fd.storyBg = opt.getAttribute('data-bg');
-          var bg = q('story-preview-bg');
-          if (bg) bg.style.background = fd.storyBg;
-        });
-      });
-
-      /* Story text input preview */
-      q('story-text-input') && q('story-text-input').addEventListener('input', function() {
-        var disp = q('story-text-display');
-        if (disp) disp.textContent = this.value || 'Écris quelque chose…';
-      });
-
-      /* Story photo */
-      q('btn-story-photo') && q('btn-story-photo').addEventListener('click', function(){ q('story-photo-input').click(); });
-
-      /* Story publish */
-      q('btn-story-publish') && q('btn-story-publish').addEventListener('click', publishStory);
-
-      /* Theme toggle */
-      q('btn-theme') && q('btn-theme').addEventListener('click', function(){
-        SIS.theme.toggle();
-        updateThemeIcon();
-      });
-
-      /* Délégation pour actions sur les posts */
-      q('posts-list') && q('posts-list').addEventListener('click', function(e) {
-        var target = e.target;
-
-        /* Bouton options (3 points) */
-        var moreBtn = target.closest('.post-more-btn');
-        if (moreBtn) { openPostOptions(moreBtn.getAttribute('data-id')); return; }
-
-        /* Réactions (🤣❤️😡🎊) */
-        var reactBtn = target.closest('.reaction-btn');
-        if (reactBtn) { handleReaction(reactBtn.getAttribute('data-id'), reactBtn.getAttribute('data-emoji'), reactBtn); return; }
-
-        /* Actions bar */
-        var action = target.closest('.post-action');
-        if (action) {
-          var id  = action.getAttribute('data-id');
-          var act = action.getAttribute('data-action');
-          if (act==='comment') openComments(id);
-          else if (act==='echo') openEcho(id);
-          else if (act==='share') {
-            SIS.utils.share({ title: 'Post SIS', url: window.location.origin + '/feed.html?post=' + id })
-              .then(function(){ SIS.toast.success(SIS.i18n.t('copy_success')); });
-          }
-          return;
-        }
-
-        /* Poll option vote */
-        var pOpt = target.closest('.poll-opt');
-        if (pOpt) { handleVote(pOpt.getAttribute('data-post'), parseInt(pOpt.getAttribute('data-idx'),10), 'poll'); return; }
-      });
-    }
-
-    /* RETIRÉ sur demande : picker de réactions du feed (showReactionPicker). */
-
-    /* ── PUBLIER STORY ── */
     function publishStory() {
       var text = q('story-text-input') ? q('story-text-input').value.trim() : '';
       var bg   = fd.storyBg;
       var photoInput = q('story-photo-input');
       var file = photoInput && photoInput.files && photoInput.files[0];
-
       SIS.authHelper.getProfile(user.uid).then(function(profile) {
         var storyData = {
-          authorUid:       user.uid,
-          authorPseudo:    profile ? profile.pseudo : '?',
-          authorPhoto:     profile ? profile.photoUrl : null,
-          authorCertified: profile ? profile.certified : false,
-          text:            text || null,
-          bg:              bg,
-          imageUrl:        null,
-          viewCount:       0,
-          seenBy:          {},
-          createdAt:       firebase.firestore.FieldValue.serverTimestamp()
+          authorUid: user.uid, authorPseudo: profile ? profile.pseudo : '?',
+          authorPhoto: profile ? profile.photoUrl : null, authorCertified: profile ? profile.certified : false,
+          text: text || null, bg: bg, imageUrl: null, viewCount: 0, seenBy: {},
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
-
         var doSave = function() {
           return SIS.db.collection('stories').add(storyData).then(function() {
             hideOverlay('story-composer-overlay');
@@ -2216,20 +1567,12 @@
             loadStories();
           });
         };
-
-        if (file) {
-          return SIS.image.processAndUpload(file, { type: 'story' })
-            .then(function(result) {
-              storyData.imageUrl = result.publicId;
-              return doSave();
-            });
-        }
+        if (file) return SIS.image.processAndUpload(file, { type: 'story' }).then(function(result) { storyData.imageUrl = result.publicId; return doSave(); });
         if (!text) { SIS.toast.warning('Ajoute du texte ou une photo'); return; }
         return doSave();
       }).catch(function(){ SIS.toast.error('Erreur publication story'); });
     }
 
-    /* ── THEME ICON ── */
     function updateThemeIcon() {
       var icon = q('theme-icon');
       if (!icon) return;
@@ -2240,1820 +1583,117 @@
       }
     }
 
-    /* ── INIT THREAD BLOCKS ── */
+    /* ── LIAISON DES ÉVÉNEMENTS ── */
+    function bindEvents() {
+      qsa('#lives-tabs .tab-item').forEach(function(t) {
+        t.addEventListener('click', function(){ switchTab(t.getAttribute('data-tab')); });
+      });
+
+      q('btn-theme').addEventListener('click', function(){ SIS.theme.toggle(); updateThemeIcon(); });
+
+      /* Créer un live (bouton + de la bottom nav — pattern déjà établi
+         dans core.js pour que le + fonctionne aussi depuis les autres
+         pages, pas seulement feed.html) */
+      SIS.onPostClick = openCreateLive;
+
+      q('live-title-input').addEventListener('input', checkCreateLiveReady);
+      q('live-schedule-input').addEventListener('input', checkCreateLiveReady);
+
+      qsa('.live-theme-opt').forEach(function(o) {
+        o.addEventListener('click', function() {
+          qsa('.live-theme-opt').forEach(function(x){ x.classList.remove('active'); });
+          o.classList.add('active');
+          fd.createTheme = o.getAttribute('data-theme');
+        });
+      });
+      qsa('#live-visibility-toggle .live-toggle-opt').forEach(function(o) {
+        o.addEventListener('click', function() {
+          qsa('#live-visibility-toggle .live-toggle-opt').forEach(function(x){ x.classList.remove('active'); });
+          o.classList.add('active');
+          fd.createVisibility = o.getAttribute('data-vis');
+        });
+      });
+      qsa('#live-timing-toggle .live-toggle-opt').forEach(function(o) {
+        o.addEventListener('click', function() {
+          qsa('#live-timing-toggle .live-toggle-opt').forEach(function(x){ x.classList.remove('active'); });
+          o.classList.add('active');
+          fd.createTiming = o.getAttribute('data-timing');
+          q('live-schedule-field').style.display = fd.createTiming === 'scheduled' ? 'block' : 'none';
+          q('btn-create-live-confirm').textContent = fd.createTiming === 'scheduled' ? 'Programmer' : 'Démarrer maintenant';
+          checkCreateLiveReady();
+        });
+      });
+      q('btn-create-live-confirm').addEventListener('click', confirmCreateLive);
+      q('create-live-overlay').addEventListener('click', function(e){ if (e.target===this) hideOverlay('create-live-overlay'); });
+
+      /* Salle de live */
+      q('btn-leave-live').addEventListener('click', leaveLiveRoom);
+      q('btn-request-speak').addEventListener('click', function() {
+        SIS.authHelper.getProfile(user.uid).then(function(profile) {
+          return SIS.live.requestToSpeak(fd.currentLiveId, profile ? profile.pseudo : '?');
+        }).then(function(){ SIS.toast.success('Demande envoyée à l\'hôte'); })
+          .catch(function(err){ SIS.toast.error(err.message || 'Action impossible'); });
+      });
+      q('btn-mic-toggle').addEventListener('click', function() {
+        fd.micMuted = !fd.micMuted;
+        SIS.live.setMicMuted(fd.micMuted);
+        SIS.live.muteSpeakerFlag(fd.currentLiveId, user.uid, fd.micMuted);
+        updateMicButtonUI();
+      });
+      q('btn-live-chat-send').addEventListener('click', function() {
+        var input = q('live-chat-input');
+        var text = input.value.trim();
+        if (!text) return;
+        SIS.authHelper.getProfile(user.uid).then(function(profile) {
+          return SIS.live.sendLiveChatMessage(fd.currentLiveId, user.uid, profile ? profile.pseudo : '?', text);
+        }).then(function(){ input.value=''; }).catch(function(err){ SIS.toast.error(err.message||'Envoi impossible'); });
+      });
+      q('live-chat-input').addEventListener('keypress', function(e){ if (e.key==='Enter') q('btn-live-chat-send').click(); });
+
+      q('btn-live-queue').addEventListener('click', function(){ showOverlay('live-queue-overlay'); });
+      q('btn-open-live-queue-2').addEventListener('click', function(){ hideOverlay('live-host-menu-overlay'); showOverlay('live-queue-overlay'); });
+      q('live-queue-overlay').addEventListener('click', function(e){ if (e.target===this) hideOverlay('live-queue-overlay'); });
+      q('btn-live-menu').addEventListener('click', function(){ showOverlay('live-host-menu-overlay'); });
+      q('live-host-menu-overlay').addEventListener('click', function(e){ if (e.target===this) hideOverlay('live-host-menu-overlay'); });
+      q('btn-end-live').addEventListener('click', function() {
+        if (!window.confirm('Terminer ce live pour tout le monde ?')) return;
+        SIS.live.endLive(fd.currentLiveId).then(function(){
+          hideOverlay('live-host-menu-overlay');
+          SIS.toast.success('Live terminé');
+          leaveLiveRoom();
+        });
+      });
+
+      /* Story */
+      q('story-add-btn').addEventListener('click', function(){ showOverlay('story-composer-overlay'); });
+      q('btn-story-publish') && q('btn-story-publish').addEventListener('click', publishStory);
+    }
+
     /* ── LANCER ── */
     bindEvents();
-    switchComposerType('csdpm');
     updateThemeIcon();
-    /* On attend les centres d'intérêt avant le 1er rendu, sinon l'algo
-       du fil global démarrerait sans pondération de pertinence. */
-    loadUserInterests().then(function () { loadPosts(true); });
     loadStories();
-    initInfiniteScroll();
-    SIS.injectBottomNav('feed'); /* nav en premier */
 
-    /* FIX: complète le correctif du bouton + (core.js) — si on arrive sur le
-       feed depuis une autre page via le bouton + de la bottom nav, on ouvre
-       le composeur automatiquement. */
-    if (window.location.search.indexOf('compose=1') > -1) {
-      openComposer();
-      /* Nettoie l'URL pour ne pas rouvrir le composeur à chaque refresh */
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState(null, '', 'feed.html');
-      }
-    }
-
-    /* FIX BUG CONFIRMÉ: cliquer sur une notification (like/commentaire/echo/
-       battle/mention) redirigeait vers 'feed.html?post=ID', mais AUCUN code
-       ne lisait jamais ce paramètre — l'utilisateur atterrissait juste sur
-       le fil général, sans jamais voir le post concerné. "L'action" de la
-       notification ne faisait donc rigoureusement rien d'utile. On ouvre
-       maintenant directement les commentaires du post visé. */
     var urlParams = new URLSearchParams(window.location.search);
-    var deepLinkPostId = urlParams.get('post');
-    if (deepLinkPostId) {
-      openComments(deepLinkPostId);
-      if (window.history && window.history.replaceState) {
-        window.history.replaceState(null, '', 'feed.html');
-      }
+    var initialTab = urlParams.get('tab');
+    switchTab(initialTab === 'explorer' ? 'explorer' : initialTab === 'mylives' ? 'mylives' : 'live-now');
+
+    if (urlParams.get('create') === '1') {
+      openCreateLive();
+      if (window.history && window.history.replaceState) window.history.replaceState(null, '', 'feed.html');
+    }
+    var deepLinkLiveId = urlParams.get('live');
+    if (deepLinkLiveId) {
+      joinLive(deepLinkLiveId, false);
+      if (window.history && window.history.replaceState) window.history.replaceState(null, '', 'feed.html');
     }
   }
 
   /* ══════════════════════════════════════════════════════════
-     MODULES PAGES STUBS (chat, profil, notifs, decouvrir)
+     MODULES PAGES STUBS (profil, notifs)
   ══════════════════════════════════════════════════════════ */
-  var ChatModule    = { init: function () { SIS.init({ page: 'chat', requireAuth: false, onReady: initChat, onGuest: function(){ initChat(null); } }); } };
   var ProfilModule  = { init: function () { SIS.init({ page: 'profil',    requireAuth: true,  onReady: initProfil }); } };
   var NotifsModule  = { init: function () { SIS.init({ page: 'notifs',    requireAuth: true,  onReady: initNotifs }); } };
-  var DiscoverModule= { init: function () { SIS.init({ page: 'decouvrir', requireAuth: false, onReady: initDiscover }); } };
-
-  /* ══════════════════════════════════════════════════════════
-     MODULE CHAT
-  ══════════════════════════════════════════════════════════ */
-  function initChat(user) {
-    var cd = {
-      currentView:   'home',   /* home | room | mystere-room */
-      currentTab:    'salons',
-      currentCat:    '',
-      currentRoom:   null,     /* { id, type, name, isCanal, slowMode, pwd } */
-      unsubMessages: null,
-      unsubMystere:  null,
-      replyTo:       null,     /* { id, pseudo, text } */
-      slowCooldown:  false,
-      slowTimer:     null,
-      mystereMatchId:null,
-      mystereQueueId:null,
-      searchTimer:   null,
-      searchSeconds: 0,
-      anonPollAnon:  false,
-      TENOR_KEY:     '', /* → Clé Tenor Google API */
-      ADMIN_UID:     'gbaguidiexauce@gmail.com'
-    };
-
-    function q(id) { return document.getElementById(id); }
-    function qsa(sel, ctx) { return Array.from((ctx||document).querySelectorAll(sel)); }
-    function showOverlay(id)  { var e=q(id); if(e) e.style.display='flex'; }
-    function hideOverlay(id)  { var e=q(id); if(e) e.style.display='none'; }
-
-    /* ── NAVIGATION ENTRE VUES ── */
-    function showView(name) {
-      var views = ['chat-home','chat-room','chat-mystere-room'];
-      views.forEach(function(v) {
-        var el = q(v);
-        if (!el) return;
-        if (v === name) {
-          el.classList.remove('slide-back');
-          el.classList.add('active');
-        } else if (el.classList.contains('active')) {
-          el.classList.add('slide-back');
-          el.classList.remove('active');
-          setTimeout(function(){ el.classList.remove('slide-back'); }, 350);
-        }
-      });
-      cd.currentView = name;
-
-      /* FIX RESPONSIVE: le bottom nav universel chevauchait la barre de
-         saisie d'une conversation ouverte (chat-room / chat-mystere-room
-         occupent tout l'écran, inset:0, jusqu'au tout en bas). On masque
-         donc le nav pendant une conversation active, comme le font
-         WhatsApp/Messenger/Instagram — la barre de saisie reprend cet
-         espace. Il réapparaît dès le retour à la liste des discussions. */
-      var bnavEl = document.getElementById('bnav');
-      if (bnavEl) bnavEl.style.display = (name === 'chat-home') ? '' : 'none';
-    }
-
-    function goBack() {
-      if (cd.unsubMessages) { cd.unsubMessages(); cd.unsubMessages = null; }
-      if (cd.unwatchPresence) { cd.unwatchPresence(); cd.unwatchPresence = null; }
-      /* BUG-11 fix: nettoyer slow mode timer */
-      if (cd.slowTimer) { clearInterval(cd.slowTimer); cd.slowTimer = null; }
-      cd.slowCooldown = false;
-      var inp = q('chat-msg-input'); if(inp) inp.disabled = false;
-      var sendBtn = q('btn-send-msg'); if(sendBtn) sendBtn.disabled = false;
-      var bar = q('slow-cooldown'); if(bar) bar.style.display = 'none';
-      cd.currentRoom = null;
-      cd.replyTo = null;
-      resetReplyUI();
-      showView('chat-home');
-    }
-
-    /* ── TABS ── */
-    function switchTab(tab) {
-      cd.currentTab = tab;
-      qsa('.tab-item', q('chat-main-tabs')).forEach(function(t){
-        t.classList.toggle('active', t.getAttribute('data-tab') === tab);
-      });
-      qsa('.chat-tab-content').forEach(function(c){
-        c.classList.toggle('active', c.id === 'tab-' + tab);
-      });
-      if (tab === 'salons')  loadSalons();
-      if (tab === 'dms')     loadDMs();
-      if (tab === 'mystere') initMystereTab();
-      if (tab === 'canaux')  loadCanaux();
-    }
-
-    /* ── CHARGER SALONS ── */
-    function loadSalons() {
-      var list = q('salons-list');
-      if (!list) return;
-      list.innerHTML = '<div class="salon-skeleton"><div class="skeleton" style="width:42px;height:42px;border-radius:12px"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:55%"></div><div class="skeleton" style="height:11px;width:40%"></div></div></div>'.repeat(3);
-
-      /* FIX BUG: le filtre par catégorie était fait via Firestore
-         ('.where(category).orderBy(onlineCount)'), une combinaison qui
-         nécessite un index composite (catégorie + onlineCount) probablement
-         jamais créé sur le projet -> la requête échouait en silence et les
-         skeletons restaient affichés pour toujours (le .catch() ne faisait
-         que logger dans la console, sans jamais nettoyer l'UI). Le filtre
-         catégorie se fait maintenant côté client, comme pour le feed.
-         FIX (2e passe) : il restait '.where(hidden).orderBy(onlineCount)' —
-         MÊME combinaison problématique avec un AUTRE champ. Retiré aussi :
-         le filtre 'hidden' se fait maintenant côté client également. */
-      var query = SIS.db.collection('salons').orderBy('onlineCount','desc').limit(cd.currentCat ? 100 : 30);
-
-      query.get().then(function(snap) {
-        var docs = snap.docs.filter(function(doc){ return !doc.data().hidden; });
-        if (cd.currentCat) {
-          docs = docs.filter(function(doc){ return doc.data().category === cd.currentCat; }).slice(0, 30);
-        }
-        list.innerHTML = '';
-        if (docs.length === 0) {
-          list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Aucun salon · Crée-en un !</div>';
-          return;
-        }
-        docs.forEach(function(doc) {
-          list.appendChild(renderSalonItem(doc.id, doc.data()));
-        });
-        /* SIS Officiel en premier */
-        createSISOfficial(list);
-      }).catch(function(e){
-        console.warn('Salons err', e);
-        /* FIX: nettoyer les skeletons et informer l'utilisateur au lieu de
-           les laisser tourner indéfiniment. */
-        list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Impossible de charger les salons.<br>Réessaie plus tard.</div>';
-      });
-    }
-
-    function createSISOfficial(list) {
-      /* Canal officiel SIS (toujours présent) */
-      var existing = list.querySelector('[data-salon-id="sis-officiel"]');
-      if (existing) return;
-      var item = document.createElement('div');
-      item.className = 'salon-item';
-      item.setAttribute('data-salon-id','sis-officiel');
-      item.style.order = '-1';
-      item.innerHTML =
-        '<div class="salon-av" style="background:var(--grad);color:#fff;font-size:18px">📢</div>' +
-        '<div class="salon-info">' +
-          '<div class="salon-name">SIS Officiel <span class="salon-badge canal">Canal</span></div>' +
-          '<div class="salon-meta">Annonces et nouveautés SIS</div>' +
-        '</div>' +
-        '<div class="salon-online"><span class="live-dot"></span></div>';
-      item.addEventListener('click', function(){ openRoom('sis-officiel',{ name:'SIS Officiel', type:'canal', category:'general', slowMode:0, isCanal:true, isOfficial:true }); });
-      list.insertBefore(item, list.firstChild);
-    }
-
-    function renderSalonItem(id, d) {
-      var item = document.createElement('div');
-      item.className = 'salon-item';
-      item.setAttribute('data-salon-id', id);
-
-      var catEmojis = { general:'💬',gaming:'🎮',tech:'💻',musique:'🎵',sport:'⚽',education:'📚',manga:'📺',art:'🎨' };
-      var emoji = catEmojis[d.category] || '💬';
-
-      var avHtml = d.photoUrl
-        ? '<div class="salon-av"><img src="' + SIS.cloudinary.url(d.photoUrl,'thumb') + '" loading="lazy" alt="" onerror="this.parentElement.textContent=\'' + emoji + '\'"></div>'
-        : '<div class="salon-av">' + emoji + '</div>';
-
-      var badgeType = d.type || 'public';
-      var badgeLabel = { public:'Public', private:'Privé', canal:'Canal' };
-
-      item.innerHTML =
-        avHtml +
-        '<div class="salon-info">' +
-          '<div class="salon-name">' + SIS.utils.escHtml(d.name||'Salon') +
-            ' <span class="salon-badge ' + badgeType + '">' + (badgeLabel[badgeType]||'Public') + '</span>' +
-          '</div>' +
-          '<div class="salon-meta">' + SIS.utils.escHtml(d.description||'') + '</div>' +
-        '</div>' +
-        '<div class="salon-online"><span class="live-dot"></span>' + (d.onlineCount||0) + '</div>';
-
-      item.addEventListener('click', function(){ openRoom(id, d); });
-      return item;
-    }
-
-    /* ── CHARGER DMs ── */
-    function loadDMs() {
-      if (!user) return;
-      var dmsListEl = q('dms-list');
-      if (dmsListEl) {
-        dmsListEl.innerHTML = '<div class="salon-skeleton"><div class="skeleton" style="width:42px;height:42px;border-radius:12px"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:55%"></div><div class="skeleton" style="height:11px;width:40%"></div></div></div>'.repeat(3);
-      }
-      /* FIX BUG: 'array-contains' + orderBy sur un AUTRE champ nécessite un
-         index composite. On garde le where('participants','array-contains',
-         ...) — indispensable pour ne charger QUE les DM de l'utilisateur,
-         pas ceux de tout le monde — mais on retire l'orderBy couplé et on
-         trie côté client à la place. Un seul array-contains, sans orderBy
-         sur un autre champ, ne nécessite aucun index composite. */
-      SIS.db.collection('dms')
-        .where('participants','array-contains', user.uid)
-        .limit(50)
-        .get()
-        .then(function(snap) {
-          var list = q('dms-list');
-          if (!list) return;
-
-          if (snap.empty) {
-            list.innerHTML = '<div class="dms-empty"><div style="font-size:40px;margin-bottom:10px">💬</div><div style="font-family:\'Syne\',sans-serif;font-weight:700;font-size:15px;margin-bottom:6px">Aucun message privé</div><div style="font-size:13px;color:var(--text2)">Clique sur le profil d\'un user pour démarrer.</div></div>';
-            return;
-          }
-
-          /* Tri côté client par date du dernier message (plus récent en premier) */
-          var sortedDocs = snap.docs.slice().sort(function(a, b) {
-            var ta = a.data().lastMsgAt, tb = b.data().lastMsgAt;
-            var ma = ta && ta.toMillis ? ta.toMillis() : 0;
-            var mb = tb && tb.toMillis ? tb.toMillis() : 0;
-            return mb - ma;
-          });
-
-          list.innerHTML = '';
-          sortedDocs.forEach(function(doc) {
-            var d = doc.data();
-            var otherUid = (d.participants||[]).find(function(uid){ return uid !== user.uid; });
-            if (!otherUid) return;
-
-            SIS.authHelper.getProfile(otherUid).then(function(profile) {
-              var item = document.createElement('div');
-              item.className = 'dm-item';
-              item.innerHTML =
-                SIS.renderAvatar({ pseudo: profile?profile.pseudo:'?', photoUrl: profile?profile.photoUrl:null, certified: profile?profile.certified:false, size:'sm', gradient: SIS.utils.pseudoToGradient(profile?profile.pseudo||'':'') }) +
-                '<div class="dm-info">' +
-                  '<div class="dm-pseudo">' + SIS.utils.escHtml(profile?profile.pseudo||'?':'?') + '</div>' +
-                  '<div class="dm-last-msg">' + SIS.utils.escHtml(SIS.utils.truncate(d.lastMsg||'',40)) + '</div>' +
-                '</div>' +
-                '<div class="dm-meta">' +
-                  '<div class="dm-time">' + SIS.utils.timeAgo(d.lastMsgAt) + '</div>' +
-                  (d.unread && d.unread[user.uid] ? '<div class="dm-unread">' + (d.unread[user.uid]||0) + '</div>' : '') +
-                '</div>';
-              item.addEventListener('click', function(){
-                /* FIX BUG CONFIRMÉ : photoUrl/certified de l'autre personne
-                   n'étaient jamais transmis -> la vraie photo de profil ne
-                   s'affichait JAMAIS dans le header du DM, repli systématique
-                   sur l'avatar généré (initiale + couleur). */
-                openRoom(doc.id, {
-                  name: profile?profile.pseudo:'?',
-                  type:'dm',
-                  otherUid: otherUid,
-                  photoUrl: profile?profile.photoUrl:null,
-                  certified: profile?profile.certified:false
-                });
-              });
-              SIS.bindAvatarClicks(item);
-              list.appendChild(item);
-            });
-          });
-        })
-        .catch(function(e) {
-          /* FIX: aucun .catch() avant -> une erreur (index manquant, réseau...)
-             laissait les skeletons affichés indéfiniment, sans message. */
-          console.warn('DMs err', e);
-          var list = q('dms-list');
-          if (list) list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Impossible de charger les messages.<br>Réessaie plus tard.</div>';
-        });
-    }
-
-    /* ── CHARGER CANAUX ── */
-    function loadCanaux() {
-      var list = q('canaux-list');
-      if (list) {
-        list.innerHTML = '<div class="salon-skeleton"><div class="skeleton" style="width:42px;height:42px;border-radius:12px"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:55%"></div><div class="skeleton" style="height:11px;width:40%"></div></div></div>'.repeat(3);
-      }
-      /* FIX BUG: '.where(type).where(hidden).orderBy(subscriberCount)' combine
-         DEUX filtres d'égalité + un tri sur un 3e champ -> nécessite presque
-         certainement un index composite jamais créé sur le projet. La requête
-         échouait donc en silence, et comme il n'y avait MÊME PAS de .catch(),
-         les skeletons restaient affichés indéfiniment, sans aucun message,
-         sans aucune trace dans la console. Filtres 'type' ET 'hidden' déplacés
-         côté client (même un .where(hidden) seul + orderBy sur un autre champ
-         nécessite déjà un index composite). */
-      SIS.db.collection('salons')
-        .orderBy('subscriberCount','desc').limit(60).get()
-        .then(function(snap) {
-          if (!list) return;
-          var docs = snap.docs.filter(function(doc){ var d=doc.data(); return d.type === 'canal' && !d.hidden; }).slice(0, 20);
-          list.innerHTML = '';
-          if (docs.length === 0) {
-            list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Aucun canal pour le moment.</div>';
-            return;
-          }
-          docs.forEach(function(doc) {
-            var d = doc.data();
-            var item = document.createElement('div');
-            item.className = 'canal-item';
-            var isSub = user && d.subscribers && d.subscribers[user.uid];
-            item.innerHTML =
-              '<div class="canal-av">📢</div>' +
-              '<div class="canal-info">' +
-                '<div class="canal-name">' + SIS.utils.escHtml(d.name||'Canal') + '</div>' +
-                '<div class="canal-desc">' + SIS.utils.escHtml(d.description||'') + '</div>' +
-              '</div>' +
-              '<div class="canal-stats">' +
-                '<span class="canal-sub-count">' + SIS.utils.formatCount(d.subscriberCount||0) + '</span>' +
-                '<button class="btn-subscribe' + (isSub?' subscribed':'') + '" data-id="' + doc.id + '">' + (isSub?'Suivi ✓':'Suivre') + '</button>' +
-              '</div>';
-            item.querySelector('.btn-subscribe').addEventListener('click', function(e){
-              e.stopPropagation();
-              toggleSubscribe(doc.id, d, this);
-            });
-            item.addEventListener('click', function(){ openRoom(doc.id, d); });
-            list.appendChild(item);
-          });
-        })
-        .catch(function(e) {
-          console.warn('Canaux err', e);
-          if (list) list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-size:13px">Impossible de charger les canaux.<br>Réessaie plus tard.</div>';
-        });
-    }
-
-    function toggleSubscribe(salonId, d, btn) {
-      if (!user) { window.location.href='auth.html'; return; }
-      var isSub = btn.classList.contains('subscribed');
-      var update = {};
-      update['subscribers.' + user.uid] = isSub ? firebase.firestore.FieldValue['delete']() : true;
-      update.subscriberCount = firebase.firestore.FieldValue.increment(isSub ? -1 : 1);
-      SIS.db.collection('salons').doc(salonId).update(update)
-        .then(function(){
-          btn.classList.toggle('subscribed', !isSub);
-          btn.textContent = !isSub ? 'Suivi ✓' : 'Suivre';
-          SIS.toast.success(!isSub ? 'Canal suivi !' : 'Canal retiré');
-        });
-    }
-
-    /* ── OUVRIR SALON / DM ── */
-    function openRoom(roomId, data) {
-      /* Salon privé avec mot de passe */
-      if (data.type === 'private' && data.pwd) {
-        if (!user || !data.members || !data.members[user.uid]) {
-          showSalonPwdSheet(roomId, data);
-          return;
-        }
-      }
-
-      cd.currentRoom = Object.assign({ id: roomId }, data);
-
-      /* FIX BUG CONFIRMÉ: 'unread.{uid}' est incrémenté à chaque message
-         envoyé (voir sendMessage) mais n'était JAMAIS remis à zéro nulle
-         part dans le code -> le badge de messages non lus restait affiché
-         pour toujours, même après lecture de la conversation. */
-      if (data.type === 'dm' && user) {
-        SIS.db.collection('dms').doc(roomId)
-          .update({ ['unread.' + user.uid]: firebase.firestore.FieldValue.delete() })
-          .catch(function(){ /* le doc peut ne pas avoir ce champ, sans gravité */ });
-      }
-
-      /* Mettre à jour le header */
-      /* FIX BUG CONFIRMÉ (capture utilisateur) : <img> brut sans fallback ->
-         si l'image échouait à charger, le navigateur affichait l'icône
-         "image cassée" avec le texte alt visible. SIS.renderAvatar() a déjà
-         un fallback propre (repli sur un cercle coloré avec l'initiale) —
-         on l'utilise maintenant pour TOUS les cas, salon ou DM. */
-      var catEmojis = { general:'💬',gaming:'🎮',tech:'💻',musique:'🎵',sport:'⚽',education:'📚',manga:'📺',art:'🎨' };
-      var roomAvEl = q('room-av');
-      if (roomAvEl) {
-        if (data.photoUrl || data.type === 'dm') {
-          roomAvEl.innerHTML = SIS.renderAvatar({
-            photoUrl: data.photoUrl || null,
-            pseudo:   data.name || '?',
-            certified: data.certified || false,
-            size:     'xs',
-            gradient: SIS.utils.pseudoToGradient(data.name||'')
-          });
-        } else {
-          roomAvEl.textContent = catEmojis[data.category] || '💬';
-        }
-      }
-
-      var nameEl = q('room-name');
-      if (nameEl) nameEl.textContent = data.name || 'Salon';
-
-      /* FIX BUG CONFIRMÉ (présence factice) : le header affichait "En ligne"
-         en dur pour TOUTE conversation privée, peu importe la réalité, et
-         un compteur de salon figé (incrémenté de +0 à chaque message, donc
-         jamais mis à jour). On branche maintenant le vrai statut RTDB. */
-      if (cd.unwatchPresence) { cd.unwatchPresence(); cd.unwatchPresence = null; }
-      var metaEl = q('room-meta');
-      if (data.type === 'dm' && data.otherUid) {
-        cd.unwatchPresence = SIS.authHelper.watchPresence(data.otherUid, function (p) {
-          if (!metaEl) return;
-          metaEl.classList.toggle('offline', !p.online);
-          if (p.online) {
-            metaEl.innerHTML = '<span class="live-dot"></span>En ligne';
-          } else {
-            var seen = p.lastSeen ? 'Vu ' + SIS.utils.timeAgo(p.lastSeen).toLowerCase() : 'Hors ligne';
-            metaEl.innerHTML = '<span class="live-dot offline"></span>' + seen;
-          }
-        });
-      } else if (metaEl) {
-        /* Salon : on s'assure d'être compté comme membre (les salons publics
-           ne suivaient jusqu'ici que le créateur), puis on calcule un vrai
-           nombre de membres en ligne à partir de la présence RTDB. */
-        if (user && data.members && !data.members[user.uid]) {
-          SIS.db.collection('salons').doc(roomId)
-            .update({ ['members.' + user.uid]: 'member' })
-            .catch(function () {});
-          data.members = Object.assign({}, data.members, { [user.uid]: 'member' });
-        }
-        metaEl.innerHTML = '<span class="live-dot"></span>… en ligne';
-        if (SIS.rtdb) {
-          var presenceHandler = function (snap) {
-            var onlineUids = {}; snap.forEach(function (c) { onlineUids[c.key] = true; });
-            var memberUids = Object.keys(data.members || {});
-            var count = memberUids.filter(function (u) { return onlineUids[u]; }).length;
-            metaEl.innerHTML = '<span class="live-dot"></span>' + count + ' en ligne';
-          };
-          var presenceQuery = SIS.rtdb.ref('presence').orderByChild('online').equalTo(true);
-          presenceQuery.on('value', presenceHandler);
-          cd.unwatchPresence = function () { presenceQuery.off('value', presenceHandler); };
-        }
-      }
-
-      /* Slow mode */
-      var slowBar = q('slow-mode-bar');
-      if (slowBar) {
-        if (data.slowMode && data.slowMode > 0) {
-          slowBar.style.display = 'flex';
-          var lbl = q('slow-mode-label');
-          if (lbl) lbl.textContent = data.slowMode + 's';
-        } else {
-          slowBar.style.display = 'none';
-        }
-      }
-
-      /* Message épinglé */
-      loadPinnedMsg(roomId);
-
-      showView('chat-room');
-      loadMessages(roomId, data);
-
-      /* Admin check - via Firestore pour éviter le hardcode pur */
-      if (user && (user.email === 'gbaguidiexauce@gmail.com' || 
-          (window._sisAdminVerified && window._sisAdminVerified === user.uid))) {
-        var adminPanel = document.createElement('button');
-        adminPanel.className = 'topbar-btn';
-        adminPanel.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
-        adminPanel.addEventListener('click', openAdminPanel);
-        var actions = q('room-header').querySelector('.room-header-actions');
-        if (actions) actions.insertBefore(adminPanel, actions.firstChild);
-      }
-    }
-
-    /* ── CHARGER MESSAGES ── */
-    function loadMessages(roomId, roomData) {
-      if (cd.unsubMessages) { cd.unsubMessages(); cd.unsubMessages = null; }
-
-      var msgList = q('messages-list');
-      if (!msgList) return;
-      msgList.innerHTML = '<div class="msgs-skeleton"><div class="skeleton" style="height:40px;width:65%;border-radius:4px 12px 12px 12px;margin-bottom:8px"></div><div class="skeleton" style="height:40px;width:55%;border-radius:12px 4px 12px 12px;margin-left:auto;margin-bottom:8px"></div></div>';
-
-      var collPath = roomData.type === 'dm'
-        ? 'dms/' + roomId + '/messages'
-        : 'salons/' + roomId + '/messages';
-
-      cd.unsubMessages = SIS.db.collection(collPath)
-        .orderBy('createdAt', 'asc')
-        .limitToLast(50)
-        .onSnapshot(function(snap) {
-          msgList.innerHTML = '';
-
-          var lastDate = null;
-          var lastMineDoc = null;   /* pour l'indicateur "Vu" façon Instagram */
-          var unreadFromOther = [];
-          snap.forEach(function(doc) {
-            var d = doc.data();
-
-            /* Séparateur de date */
-            var msgDate = d.createdAt ? d.createdAt.toDate().toLocaleDateString('fr-FR',{day:'2-digit',month:'short'}) : null;
-            if (msgDate && msgDate !== lastDate) {
-              var sep = document.createElement('div');
-              sep.className = 'msg-date-sep';
-              sep.textContent = msgDate;
-              msgList.appendChild(sep);
-              lastDate = msgDate;
-            }
-
-            var isMe = user && d.authorUid === user.uid;
-            var msgEl = renderMessage(doc.id, d, isMe, roomData);
-            msgList.appendChild(msgEl);
-
-            if (isMe) lastMineDoc = { id: doc.id, data: d };
-            else if (roomData.type === 'dm' && !d.read) unreadFromOther.push(doc.id);
-          });
-
-          scrollToBottom(msgList);
-
-          /* FEATURE : lecture façon Instagram.
-             1) Marquer comme lus les messages reçus dès qu'on ouvre la conv.
-             2) Afficher "Vu" sous mon dernier message une fois lu par l'autre —
-                un seul indicateur global en bas, pas une coche par message
-                (ça, c'est la convention WhatsApp ; on suit ici Instagram). */
-          if (roomData.type === 'dm' && user && unreadFromOther.length) {
-            var batch = SIS.db.batch();
-            unreadFromOther.forEach(function(msgId) {
-              batch.update(SIS.db.collection(collPath).doc(msgId), { read: true, readAt: firebase.firestore.FieldValue.serverTimestamp() });
-            });
-            batch.commit().catch(function(){});
-          }
-          if (roomData.type === 'dm' && lastMineDoc && lastMineDoc.data.read) {
-            var seenEl = document.createElement('div');
-            seenEl.className = 'msg-seen-indicator';
-            seenEl.textContent = 'Vu';
-            msgList.appendChild(seenEl);
-          }
-
-          /* Déchiffrer les messages DM */
-          if (roomData.type === 'dm' && user) {
-            var secret = SIS.crypto.roomSecret(user.uid, roomData.otherUid || '');
-            snap.forEach(function(doc) {
-              var d = doc.data();
-              if (d.encrypted && d.ciphertext) {
-                SIS.crypto.decrypt(d.ciphertext, secret).then(function(plain) {
-                  var el = msgList.querySelector('[data-msg-id="' + doc.id + '"] .msg-text');
-                  if (el) el.textContent = plain;
-                });
-              }
-            });
-          }
-        }, function(e){ console.warn('Messages err',e); });
-    }
-
-    function renderMessage(id, d, isMe, roomData) {
-      var item = document.createElement('div');
-      item.className = 'msg-item' + (isMe ? ' me' : ' them');
-      item.setAttribute('data-msg-id', id);
-
-      var avatarHtml = !isMe
-        ? SIS.renderAvatar({
-            pseudo:    d.pseudo || '?',
-            photoUrl:  d.photoUrl || null,
-            certified: d.certified || false,
-            size:      'xs',
-            gradient:  SIS.utils.pseudoToGradient(d.pseudo||''),
-            onClick:   d.pseudo && d.pseudo !== 'Anonyme' ? function(pseudo){ SIS.profilePopup.show(pseudo); } : null
-          })
-        : '';
-
-      /* Reply preview */
-      var replyHtml = '';
-      if (d.replyTo) {
-        replyHtml = '<div class="msg-reply-preview"><div class="msg-reply-name">' +
-          SIS.utils.escHtml(d.replyTo.pseudo||'') + '</div>' +
-          '<div>' + SIS.utils.escHtml(SIS.utils.truncate(d.replyTo.text||'',60)) + '</div></div>';
-      }
-
-      /* Contenu */
-      var content = '';
-      if (d.imageUrl) {
-        content = '<img class="msg-image" src="' + SIS.cloudinary.url(d.imageUrl,'feed') + '" loading="lazy" alt="Image" onerror="console.error(\'Image message échouée:\',this.src)">';
-      } else if (d.audioUrl) {
-        var durSec = d.audioDuration || 0;
-        var durLabel = Math.floor(durSec/60) + ':' + (durSec%60 < 10 ? '0' : '') + (durSec%60);
-        content =
-          '<div class="msg-audio">' +
-            '<button class="msg-audio-play" aria-label="Lecture">' +
-              '<svg class="ic-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6,3 20,12 6,21"/></svg>' +
-              '<svg class="ic-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="3" width="5" height="18"/><rect x="14" y="3" width="5" height="18"/></svg>' +
-            '</button>' +
-            '<div class="msg-audio-track"><div class="msg-audio-progress"></div></div>' +
-            '<span class="msg-audio-duration">' + durLabel + '</span>' +
-            '<audio preload="none" src="' + SIS.image.audioUrl(d.audioUrl) + '" ' +
-              'ontimeupdate="var p=this.parentElement.querySelector(\'.msg-audio-progress\');if(p)p.style.width=(this.currentTime/(this.duration||1)*100)+\'%\'" ' +
-              'onended="this.parentElement.querySelector(\'.msg-audio-play\').classList.remove(\'playing\');var p=this.parentElement.querySelector(\'.msg-audio-progress\');if(p)p.style.width=\'0%\';this.currentTime=0"' +
-            '></audio>' +
-          '</div>';
-      } else if (d.gifUrl) {
-        content = '<img class="msg-gif" src="' + SIS.utils.escHtml(d.gifUrl) + '" loading="lazy" alt="GIF">';
-      } else if (d.poll) {
-        content = renderMsgPoll(d.poll, id, isMe);
-      } else if (d.encrypted) {
-        content = '<span class="msg-text">🔒 Chiffrement…</span>';
-      } else {
-        content = '<span class="msg-text">' + SIS.utils.parseText(d.text||'') + '</span>';
-      }
-
-      /* Réactions */
-      var reactHtml = '';
-      if (d.reactions && Object.keys(d.reactions).length > 0) {
-        reactHtml = '<div class="msg-reactions">';
-        Object.entries(d.reactions).forEach(function(entry) {
-          reactHtml += '<div class="msg-react-pill" data-msg="'+id+'" data-emoji="'+entry[0]+'">' +
-            entry[0] + (entry[1]>1?' '+entry[1]:'') + '</div>';
-        });
-        reactHtml += '</div>';
-      }
-
-      var senderHtml = !isMe && roomData.type !== 'dm'
-        ? '<div class="msg-sender">' +
-            (d.country ? '<span class="msg-country">' + d.country + '</span>' : '') +
-            SIS.utils.escHtml(d.pseudo||'Anonyme') +
-            (d.certified ? ' <svg width="11" height="11" viewBox="0 0 24 24"><defs><linearGradient id="mcg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5B8EF4"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="url(#mcg)"/></svg>' : '') +
-          '</div>'
-        : '';
-
-      var time = d.createdAt ? d.createdAt.toDate().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '';
-      var metaHtml = '<div class="msg-meta">' + time + (isMe ? ' ✓✓' : '') + '</div>';
-
-      var bubble = '<div class="msg-bubble">' + senderHtml + replyHtml + content + metaHtml + '</div>';
-
-      item.innerHTML = avatarHtml + bubble + reactHtml;
-
-      /* Long press pour context menu */
-      var pressTimer;
-      item.addEventListener('touchstart', function(){ pressTimer = setTimeout(function(){ openMsgContext(id, d, isMe); }, 500); }, { passive:true });
-      item.addEventListener('touchend', function(){ clearTimeout(pressTimer); }, { passive:true });
-      item.addEventListener('contextmenu', function(e){ e.preventDefault(); openMsgContext(id, d, isMe); });
-
-      SIS.bindAvatarClicks(item);
-      return item;
-    }
-
-    function renderMsgPoll(poll, msgId, isMe) {
-      var total = (poll.options||[]).reduce(function(s,o){ return s+(o.votes||0); },0);
-      var optsHtml = (poll.options||[]).map(function(opt,i) {
-        var pct = total>0 ? Math.round((opt.votes||0)/total*100) : 0;
-        return '<div class="msg-poll-opt" data-msg-poll="'+msgId+'" data-idx="'+i+'">' +
-          '<div class="msg-poll-bar" style="width:'+pct+'%"></div>' +
-          '<div class="msg-poll-row"><span style="position:relative">'+SIS.utils.escHtml(opt.text||'')+'</span>' +
-          '<span class="msg-poll-pct">'+pct+'%</span></div></div>';
-      }).join('');
-      return '<div class="msg-poll"><div class="msg-poll-question">'+SIS.utils.escHtml(poll.question||'')+'</div>'+optsHtml+'</div>';
-    }
-
-    /* ── ENVOYER MESSAGE ── */
-    function sendMessage(text, extra) {
-      if (!text && !extra) return;
-      if (!user) { window.location.href='auth.html'; return; }
-      if (cd.slowCooldown) { SIS.toast.warning('Slow mode actif'); return; }
-      if (!SIS.security.rateLimit('chat_msg', 15)) { SIS.toast.warning('Trop vite !'); return; }
-
-      /* FIX/MODÉRATION: mini-assistant qui bloque les messages à caractère
-         sexuel non sollicité ou les arnaques financières AVANT envoi, et
-         applique un avertissement (escalade -> bannissement à >3 points). */
-      if (text) {
-        var modResult = SIS.moderation.analyze(text);
-        if (modResult.flagged) {
-          SIS.moderation.recordViolation(user.uid, modResult.category, modResult.severity, text)
-            .then(function (res) {
-              if (res && res.banned) {
-                SIS.toast.error('Compte banni', 'Trop d\'avertissements pour contenu interdit.');
-                setTimeout(function () { window.location.href = 'auth.html'; }, 1500);
-              }
-            });
-          SIS.toast.warning(
-            'Message bloqué',
-            modResult.severity === 'high'
-              ? 'Contenu interdit détecté — avertissement sévère ajouté.'
-              : 'Contenu interdit détecté — avertissement ajouté.'
-          );
-          var input = q('chat-msg-input');
-          if (input) input.value = '';
-          return;
-        }
-      }
-
-      /* Sur demande : complète le filtre par mots-clés avec l'API de
-         sécurité Google (Perspective API) pour les cas plus subtils
-         (harcèlement, menaces, toxicité non couverte par les regex). Tant
-         que SIS.PERSPECTIVE_API_KEY est vide, ceci se résout instantanément
-         à {flagged:false} et n'introduit aucun changement de comportement. */
-      SIS.moderation.checkToxicity(text).then(function (toxResult) {
-        if (toxResult.flagged) {
-          SIS.moderation.recordViolation(user.uid, toxResult.category, toxResult.severity, text)
-            .then(function (res) {
-              if (res && res.banned) {
-                SIS.toast.error('Compte banni', 'Trop d\'avertissements pour contenu interdit.');
-                setTimeout(function () { window.location.href = 'auth.html'; }, 1500);
-              }
-            });
-          SIS.toast.warning('Message bloqué', 'Contenu jugé toxique par notre système de sécurité.');
-          var input2 = q('chat-msg-input');
-          if (input2) input2.value = '';
-          return;
-        }
-        proceedSendMessage();
-      });
-
-      function proceedSendMessage() {
-      var room = cd.currentRoom;
-      if (!room) return;
-
-      SIS.authHelper.getProfile(user.uid).then(function(profile) {
-        var collPath = room.type === 'dm' ? 'dms/'+room.id+'/messages' : 'salons/'+room.id+'/messages';
-
-        var msgData = {
-          authorUid:  user.uid,
-          pseudo:     profile ? profile.pseudo : '?',
-          photoUrl:   profile ? profile.photoUrl : null,
-          certified:  profile ? profile.certified : false,
-          country:    null,
-          createdAt:  firebase.firestore.FieldValue.serverTimestamp(),
-          reactions:  {}
-        };
-
-        if (cd.replyTo) {
-          msgData.replyTo = { id: cd.replyTo.id, pseudo: cd.replyTo.pseudo, text: cd.replyTo.text };
-        }
-
-        /* Chiffrement AES pour DMs - texte chiffré, médias flaggués */
-        var textPromise;
-        if (room.type === 'dm' && text) {
-          var secret = SIS.crypto.roomSecret(user.uid, room.otherUid || '');
-          textPromise = SIS.crypto.encrypt(text, secret).then(function(cipher) {
-            msgData.encrypted = true;
-            msgData.ciphertext = cipher;
-            return msgData;
-          });
-        } else {
-          msgData.text = text || null;
-          if (extra) Object.assign(msgData, extra);
-          textPromise = Promise.resolve(msgData);
-        }
-
-        /* Récupérer pays via RTDB presence */
-        textPromise.then(function(data) {
-          return SIS.db.collection(collPath).add(data);
-        }).then(function() {
-          /* Mettre à jour last message salon */
-          if (room.type !== 'dm') {
-            SIS.db.collection('salons').doc(room.id).update({
-              lastMsg:   text ? SIS.utils.truncate(text, 60) : '📎',
-              lastMsgAt: firebase.firestore.FieldValue.serverTimestamp()
-            }).catch(function(){});
-          } else {
-            var dmUpdate = {
-              lastMsg:   text ? SIS.utils.truncate(text,60) : '📎',
-              lastMsgAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            dmUpdate['unread.' + room.otherUid] = firebase.firestore.FieldValue.increment(1);
-            SIS.db.collection('dms').doc(room.id).update(dmUpdate).catch(function(){});
-
-            /* Notif DM */
-            SIS.notifs.push(room.otherUid, SIS.notifs.TYPES.COMMENT, {
-              fromPseudo: profile ? profile.pseudo : null,
-              type: 'dm'
-            });
-          }
-
-          /* Slow mode */
-          if (room.slowMode && room.slowMode > 0) startSlowCooldown(room.slowMode);
-
-          resetReplyUI();
-        }).catch(function(e){ console.warn('Send msg err',e); SIS.toast.error('Erreur envoi'); });
-      });
-      }
-    }
-
-    /* ── UPLOAD IMAGE CHAT ── */
-    function sendImage(file) {
-      if (!file) return;
-      SIS.image.processAndUpload(file, { type: 'post' })
-        .then(function(result) {
-          sendMessage(null, { imageUrl: result.publicId });
-        })
-        .catch(function(){ SIS.toast.error('Erreur upload'); });
-    }
-
-    /* ── ENVOYER GIF ── */
-    function sendGif(gifUrl) {
-      hideOverlay('gif-overlay');
-      sendMessage(null, { gifUrl: gifUrl });
-    }
-
-    /* ── MESSAGES VOCAUX (remplace les sondages du chat) ──
-       Choix UX : appui simple pour démarrer/arrêter (plutôt que maintenir
-       appuyé + glisser pour annuler façon WhatsApp natif) — plus robuste sur
-       mobile web (pas de conflit avec le scroll tactile, pas de risque de
-       relâchement accidentel qui perd l'enregistrement). Annulation via le
-       bouton poubelle dédié. */
-    var voiceRec = { mediaRecorder: null, chunks: [], stream: null, timerInterval: null, seconds: 0 };
-
-    function startVoiceRecording() {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
-        SIS.toast.error('Micro non supporté sur ce navigateur');
-        return;
-      }
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-        voiceRec.stream = stream;
-        voiceRec.chunks = [];
-        voiceRec.seconds = 0;
-        var mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-        voiceRec.mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
-        voiceRec.mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) voiceRec.chunks.push(e.data); };
-        voiceRec.mediaRecorder.start();
-
-        q('chat-input-actions-normal').style.display = 'none';
-        q('chat-input-wrap').style.display = 'none';
-        q('btn-voice-msg').style.display = 'none';
-        q('btn-send-msg').style.display = 'none';
-        q('voice-recording-bar').style.display = 'flex';
-        renderVoiceTimer();
-        voiceRec.timerInterval = setInterval(function(){ voiceRec.seconds++; renderVoiceTimer(); }, 1000);
-      }).catch(function() {
-        SIS.toast.error('Micro refusé ou indisponible');
-      });
-    }
-
-    function renderVoiceTimer() {
-      var m = Math.floor(voiceRec.seconds/60), s = voiceRec.seconds%60;
-      var el = q('voice-rec-timer');
-      if (el) el.textContent = m + ':' + (s<10?'0':'') + s;
-    }
-
-    function resetVoiceUI() {
-      if (voiceRec.timerInterval) { clearInterval(voiceRec.timerInterval); voiceRec.timerInterval = null; }
-      if (voiceRec.stream) { voiceRec.stream.getTracks().forEach(function(t){ t.stop(); }); voiceRec.stream = null; }
-      var a = q('chat-input-actions-normal'), w = q('chat-input-wrap'), v = q('btn-voice-msg'), s = q('btn-send-msg'), b = q('voice-recording-bar');
-      if (a) a.style.display = 'flex';
-      if (w) w.style.display = 'flex';
-      if (v) v.style.display = 'flex';
-      if (s) s.style.display = 'flex';
-      if (b) b.style.display = 'none';
-    }
-
-    function cancelVoiceRecording() {
-      if (voiceRec.mediaRecorder && voiceRec.mediaRecorder.state !== 'inactive') {
-        voiceRec.mediaRecorder.onstop = null;
-        voiceRec.mediaRecorder.stop();
-      }
-      resetVoiceUI();
-    }
-
-    function sendVoiceRecording() {
-      if (!voiceRec.mediaRecorder || voiceRec.mediaRecorder.state === 'inactive') { resetVoiceUI(); return; }
-      var durationSec = voiceRec.seconds;
-      voiceRec.mediaRecorder.onstop = function() {
-        var blob = new Blob(voiceRec.chunks, { type: (voiceRec.mediaRecorder && voiceRec.mediaRecorder.mimeType) || 'audio/webm' });
-        resetVoiceUI();
-        if (blob.size < 500 || durationSec < 1) { SIS.toast.warning('Enregistrement trop court'); return; }
-        SIS.toast.info('Envoi du message vocal…');
-        SIS.image.uploadAudio(blob).then(function(result) {
-          sendMessage(null, { audioUrl: result.publicId, audioDuration: durationSec });
-        }).catch(function(err) {
-          SIS.toast.error(err.message || 'Envoi impossible');
-        });
-      };
-      voiceRec.mediaRecorder.stop();
-    }
-
-    /* ── RÉACTIONS MESSAGE ── */
-    function reactToMessage(msgId, emoji) {
-      if (!user || !cd.currentRoom) return;
-      var room = cd.currentRoom;
-      var collPath = room.type === 'dm' ? 'dms/'+room.id+'/messages' : 'salons/'+room.id+'/messages';
-      var update = {};
-      update['reactions.' + emoji] = firebase.firestore.FieldValue.increment(1);
-      SIS.db.collection(collPath).doc(msgId).update(update).catch(function(){});
-    }
-
-    /* ── SLOW MODE ── */
-    function startSlowCooldown(seconds) {
-      cd.slowCooldown = true;
-      var bar = q('slow-cooldown');
-      var input = q('chat-msg-input');
-      var sendBtn = q('btn-send-msg');
-      if (bar) bar.style.display = 'flex';
-      if (input) input.disabled = true;
-      if (sendBtn) sendBtn.disabled = true;
-
-      var remaining = seconds;
-      var cdown = q('slow-countdown');
-      if (cdown) cdown.textContent = remaining;
-
-      cd.slowTimer = setInterval(function() {
-        remaining--;
-        if (cdown) cdown.textContent = remaining;
-        if (remaining <= 0) {
-          clearInterval(cd.slowTimer);
-          cd.slowCooldown = false;
-          if (bar) bar.style.display = 'none';
-          if (input) input.disabled = false;
-          if (sendBtn) sendBtn.disabled = false;
-        }
-      }, 1000);
-    }
-
-    /* ── REPLY ── */
-    function setReply(msgId, pseudo, text) {
-      cd.replyTo = { id: msgId, pseudo: pseudo, text: text };
-      var prev = q('reply-preview');
-      if (prev) prev.style.display = 'flex';
-      var nameEl = q('reply-preview-name');
-      var textEl = q('reply-preview-text');
-      if (nameEl) nameEl.textContent = pseudo;
-      if (textEl) textEl.textContent = SIS.utils.truncate(text, 60);
-      var input = q('chat-msg-input');
-      if (input) input.focus();
-    }
-
-    function resetReplyUI() {
-      cd.replyTo = null;
-      var prev = q('reply-preview');
-      if (prev) prev.style.display = 'none';
-    }
-
-    /* ── MESSAGE PINNED ── */
-    function loadPinnedMsg(roomId) {
-      SIS.db.collection('salons').doc(roomId).get().then(function(doc) {
-        if (!doc.exists) return;
-        var d = doc.data();
-        var bar = q('pinned-msg');
-        var txt = q('pinned-msg-text');
-        if (d.pinnedMsg && bar && txt) {
-          bar.style.display = 'flex';
-          txt.textContent = SIS.utils.truncate(d.pinnedMsg, 60);
-        }
-      });
-    }
-
-    /* ── CONTEXTE MESSAGE (long press) ── */
-    function openMsgContext(msgId, d, isOwn) {
-      var list = q('msg-context-list');
-      if (!list) return;
-      list.innerHTML = '';
-
-      var opts = [
-        { icon:'↩', label:'Répondre', action:'reply' },
-        { icon:'📋', label:'Copier', action:'copy' },
-        { icon:'❤️', label:'Réagir', action:'react' }
-      ];
-
-      if (isOwn) opts.push({ icon:'🗑', label:'Supprimer', action:'delete', danger:true });
-      else opts.push({ icon:'🚩', label:'Signaler', action:'report', danger:true });
-
-      /* Admin: épingler */
-      if (user && user.email === 'gbaguidiexauce@gmail.com') {
-        opts.push({ icon:'📌', label:'Épingler', action:'pin' });
-      }
-
-      opts.forEach(function(opt) {
-        var item = document.createElement('div');
-        item.className = 'post-option-item' + (opt.danger?' danger':'');
-        item.innerHTML = '<span style="font-size:16px">' + opt.icon + '</span><span>' + opt.label + '</span>';
-        item.addEventListener('click', function() {
-          hideOverlay('msg-context-overlay');
-          if (opt.action === 'reply') setReply(msgId, d.pseudo||'?', d.text||'');
-          else if (opt.action === 'copy') {
-            SIS.utils.copyToClipboard(d.text||'').then(function(){ SIS.toast.success(SIS.i18n.t('copy_success')); });
-          }
-          else if (opt.action === 'react') {
-            showMsgReactPicker(msgId);
-          }
-          else if (opt.action === 'delete') {
-            if (!cd.currentRoom) return;
-            var collPath = cd.currentRoom.type==='dm' ? 'dms/'+cd.currentRoom.id+'/messages' : 'salons/'+cd.currentRoom.id+'/messages';
-            SIS.db.collection(collPath).doc(msgId).update({ text:'[Message supprimé]', deleted:true })
-              .then(function(){ SIS.toast.success('Message supprimé'); });
-          }
-          else if (opt.action === 'report') {
-            SIS.security.report(d.authorUid||'', msgId, 'messages', 'Contenu inapproprié')
-              .then(function(){ SIS.toast.success(SIS.i18n.t('report_sent')); });
-          }
-          else if (opt.action === 'pin' && cd.currentRoom) {
-            SIS.db.collection('salons').doc(cd.currentRoom.id).update({ pinnedMsg: d.text||'' })
-              .then(function(){
-                var txt = q('pinned-msg-text');
-                var bar = q('pinned-msg');
-                if (txt) txt.textContent = SIS.utils.truncate(d.text||'',60);
-                if (bar) bar.style.display='flex';
-                SIS.toast.success('Message épinglé !');
-              });
-          }
-        });
-        list.appendChild(item);
-      });
-
-      var cancel = document.createElement('div');
-      cancel.className = 'post-option-item';
-      cancel.innerHTML = '<span style="color:var(--muted)">Annuler</span>';
-      cancel.addEventListener('click', function(){ hideOverlay('msg-context-overlay'); });
-      list.appendChild(cancel);
-
-      showOverlay('msg-context-overlay');
-    }
-
-    function showMsgReactPicker(msgId) {
-      var picker = document.createElement('div');
-      picker.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--border2);border-radius:999px;padding:8px 12px;display:flex;gap:10px;z-index:800;box-shadow:var(--shadow-md);animation:scaleIn 0.15s ease both';
-      picker.innerHTML = ['❤️','😂','🔥','👏','😮','😢'].map(function(e){
-        return '<span style="font-size:22px;cursor:pointer" data-e="'+e+'">' + e + '</span>';
-      }).join('');
-      picker.addEventListener('click', function(ev) {
-        var span = ev.target.closest('[data-e]');
-        if (span) {
-          reactToMessage(msgId, span.getAttribute('data-e'));
-          document.body.removeChild(picker);
-        }
-      });
-      document.body.appendChild(picker);
-      setTimeout(function(){
-        var p = picker;
-        if (p && p.parentNode) p.parentNode.removeChild(p);
-      }, 3000);
-    }
-
-    /* ── CRÉER SALON ── */
-    function createSalon() {
-      if (!user) { window.location.href='auth.html'; return; }
-      var name = q('salon-name').value.trim();
-      if (!name) { SIS.toast.error('Nomme ton salon'); return; }
-      if (!SIS.security.rateLimit('create_salon', 2)) { SIS.toast.warning('Attends avant de créer un autre salon'); return; }
-
-      var typeEl = document.querySelector('.salon-type-opt.active');
-      var salonType = typeEl ? typeEl.getAttribute('data-type') : 'public';
-      var pwd = salonType === 'private' ? (q('salon-pwd').value.trim() || null) : null;
-      var photoInput = q('salon-photo-input');
-
-      var salonData = {
-        name:           name,
-        description:    q('salon-desc').value.trim() || '',
-        category:       q('salon-cat').value || 'general',
-        type:           salonType,
-        pwd:            pwd,
-        photoUrl:       null,
-        creatorUid:     user.uid,
-        onlineCount:    1,
-        subscriberCount:0,
-        members:        {},
-        subscribers:    {},
-        hidden:         false,
-        slowMode:       0,
-        createdAt:      firebase.firestore.FieldValue.serverTimestamp()
-      };
-      salonData.members[user.uid] = 'admin';
-
-      var doCreate = function() {
-        SIS.db.collection('salons').add(salonData).then(function(ref) {
-          hideOverlay('create-salon-overlay');
-          SIS.toast.success('Salon créé !');
-          openRoom(ref.id, salonData);
-          loadSalons();
-        }).catch(function(){ SIS.toast.error('Erreur création'); });
-      };
-
-      var file = photoInput && photoInput.files && photoInput.files[0];
-      if (file) {
-        SIS.image.processAndUpload(file, { type: 'avatar' })
-          .then(function(result) { salonData.photoUrl = result.publicId; doCreate(); })
-          .catch(doCreate);
-      } else {
-        doCreate();
-      }
-    }
-
-    /* ── PASSWORD SALON ── */
-    function showSalonPwdSheet(roomId, data) {
-      q('salon-pwd-overlay') && (q('salon-pwd-overlay').style.display='flex');
-      var joinBtn = q('btn-salon-pwd-join');
-      if (joinBtn) {
-        joinBtn.onclick = function() {
-          var entered = q('salon-pwd-input').value;
-          if (entered === data.pwd) {
-            hideOverlay('salon-pwd-overlay');
-            /* Ajouter user aux membres */
-            var update = {};
-            update['members.' + user.uid] = 'member';
-            SIS.db.collection('salons').doc(roomId).update(update).catch(function(){});
-            openRoom(roomId, data);
-          } else {
-            SIS.toast.error('Mot de passe incorrect');
-          }
-        };
-      }
-    }
-
-    /* ── CHAT MYSTÈRE ── */
-    function initMystereTab() {
-      /* Stats live */
-      SIS.rtdb.ref('presence').orderByChild('online').equalTo(true)
-        .once('value').then(function(snap) {
-          var count = snap.numChildren ? snap.numChildren() : 0;
-          var el = q('mystere-online');
-          if (el) el.textContent = SIS.utils.formatCount(count);
-        }).catch(function(){});
-
-      /* Streak */
-      if (user) {
-        SIS.db.collection('users').doc(user.uid).get().then(function(doc) {
-          if (!doc.exists) return;
-          var streak = doc.data().mystereStreak || 0;
-          if (streak > 0) {
-            var bar = q('mystere-streak');
-            var cnt = q('streak-count');
-            if (bar) bar.style.display = 'flex';
-            if (cnt) cnt.textContent = streak;
-          }
-        });
-      }
-    }
-
-    function startMystereSearch() {
-      if (!user) { window.location.href='auth.html'; return; }
-
-      q('mystere-home').style.display = 'none';
-      q('mystere-searching').style.display = 'flex';
-
-      var seconds = 0;
-      cd.searchSeconds = 0;
-      var timer = setInterval(function(){
-        seconds++;
-        cd.searchSeconds = seconds;
-        var el = q('search-timer');
-        if (el) el.textContent = seconds + 's';
-      }, 1000);
-
-      /* Écrire dans la queue RTDB */
-      var queueRef = SIS.rtdb.ref('mystere_queue/' + user.uid);
-      queueRef.set({
-        uid:       user.uid,
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        searching: true
-      });
-      /* FIX BUG CONFIRMÉ: si l'utilisateur ferme l'onglet/l'app pendant la
-         recherche, rien ne le retirait jamais de la file -> il y restait
-         "fantôme" pour toujours, et quelqu'un d'autre pouvait matcher avec
-         un utilisateur déjà parti. onDisconnect() nettoie automatiquement
-         dès que la connexion est coupée, sans action du client. */
-      queueRef.onDisconnect().remove();
-
-      cd.mystereQueueId = user.uid;
-
-      /* Écouter un match */
-      var matchRef = SIS.rtdb.ref('mystere_matches/' + user.uid);
-      cd.unsubMystere = matchRef.on('value', function(snap) {
-        var val = snap.val();
-        if (val && val.matchedWith) {
-          clearInterval(timer);
-          matchRef.off();
-          queueRef.remove();
-          cd.unsubMystere = null;
-          startMystereConversation(val.matchedWith, val.matchId);
-        }
-      });
-
-      /* FIX BUG CONFIRMÉ : après 30s sans match, l'app créait en silence une
-         conversation avec un "demo_user_<timestamp>" qui n'existe pas — un
-         reliquat de test resté dans le chemin de production. Résultat pour
-         un vrai utilisateur (très probable sur une app jeune/peu peuplée) :
-         "un match est trouvé", il écrit des messages... dans le vide, sans
-         jamais de réponse, sans le moindre signal que ce n'était pas réel.
-         On informe honnêtement à la place, et on laisse réessayer. */
-      setTimeout(function() {
-        if (q('mystere-searching') && q('mystere-searching').style.display !== 'none') {
-          clearInterval(timer);
-          if (cd.unsubMystere) { matchRef.off(); cd.unsubMystere = null; }
-          queueRef.remove();
-          q('mystere-searching').style.display = 'none';
-          q('mystere-home').style.display = 'flex';
-          SIS.toast.info('Personne de disponible pour l\'instant — réessaie dans un instant 🎭');
-        }
-      }, 30000);
-    }
-
-    function startMystereConversation(matchedUid, matchId) {
-      cd.mystereMatchId = matchId;
-
-      q('mystere-home').style.display = 'flex';
-      q('mystere-searching').style.display = 'none';
-
-      /* FIX: "En ligne" était toujours affiché en dur, comme pour les DM.
-         Même correctif : présence RTDB réelle. */
-      var metaEl = q('mystere-match-meta');
-      if (cd.unwatchPresence) { cd.unwatchPresence(); cd.unwatchPresence = null; }
-      if (metaEl && matchedUid.indexOf('demo_user_') !== 0) {
-        cd.unwatchPresence = SIS.authHelper.watchPresence(matchedUid, function(p) {
-          metaEl.textContent = p.online ? '🌍 En ligne · Match trouvé !' : '🌍 Hors ligne · Match trouvé !';
-        });
-      } else if (metaEl) {
-        metaEl.textContent = '🌍 Match trouvé !';
-      }
-
-      /* Streak bar */
-      var streakBar = q('mystere-streak-bar');
-      if (streakBar) {
-        streakBar.style.display = 'flex';
-        /* FIX : "Compatibilité" affichait un Math.random() habillé en score
-           réel — trompeur (rien ne calcule de vraie compatibilité ici pour
-           l'instant). Reformulé pour ne pas prétendre à une précision qui
-           n'existe pas, en attendant un vrai algorithme (intérêts communs,
-           groupes partagés...) si tu veux qu'on le construise. */
-        var compat = q('mystere-compat');
-        if (compat) compat.textContent = '✨ Nouvelle rencontre';
-      }
-
-      showView('chat-mystere-room');
-
-      /* Charger messages mystère */
-      var msgList = q('mystere-messages-list');
-      if (msgList) {
-        msgList.innerHTML = '';
-        /* Message de bienvenue */
-        var welcome = document.createElement('div');
-        welcome.className = 'msg-date-sep';
-        welcome.textContent = 'Conversation anonyme chiffrée 🔒';
-        msgList.appendChild(welcome);
-
-        SIS.db.collection('mystere_chats').doc(matchId).collection('messages')
-          .orderBy('createdAt','asc').limitToLast(50)
-          .onSnapshot(function(snap) {
-            msgList.innerHTML = '';
-            msgList.appendChild(welcome);
-            snap.forEach(function(doc) {
-              var d = doc.data();
-              var isMe = user && d.authorUid === user.uid;
-              var msgEl = renderMessage(doc.id, d, isMe, { type: 'mystere' });
-              msgList.appendChild(msgEl);
-            });
-            scrollToBottom(msgList);
-          });
-      }
-    }
-
-    function cancelMystereSearch() {
-      if (cd.unsubMystere) {
-        SIS.rtdb.ref('mystere_matches/' + user.uid).off();
-        cd.unsubMystere = null;
-      }
-      if (cd.mystereQueueId) {
-        SIS.rtdb.ref('mystere_queue/' + cd.mystereQueueId).remove();
-        cd.mystereQueueId = null;
-      }
-      q('mystere-home').style.display = 'flex';
-      q('mystere-searching').style.display = 'none';
-    }
-
-    function sendMystereMessage() {
-      var input = q('mystere-msg-input');
-      var text = input ? input.value.trim() : '';
-      if (!text || !cd.mystereMatchId || !user) return;
-      input.value = '';
-
-      SIS.authHelper.getProfile(user.uid).then(function(profile) {
-        SIS.db.collection('mystere_chats').doc(cd.mystereMatchId)
-          .collection('messages').add({
-            authorUid: user.uid,
-            pseudo:    '🎭 Inconnu',
-            text:      text,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            reactions: {}
-          }).catch(function(){});
-      });
-    }
-
-    /* ── INFOS SALON ── */
-    function openRoomInfo() {
-      if (!cd.currentRoom) return;
-      var room = cd.currentRoom;
-      var content = q('room-info-content');
-      if (!content) return;
-
-      var isAdmin = !!(room.members && room.members[user.uid] === 'admin');
-      var photoHtml = SIS.renderAvatar({
-        pseudo: room.name || '?', photoUrl: room.photoUrl || null, size: 'md',
-        gradient: SIS.utils.pseudoToGradient(room.name || '')
-      });
-
-      content.innerHTML = '<div style="padding:14px 16px;text-align:center"><div class="sheet-handle" style="margin-bottom:10px"></div>' +
-        '<div style="display:flex;justify-content:center;margin-bottom:8px" id="room-info-avatar-wrap">' + photoHtml + '</div>' +
-        '<h3 style="font-family:\'Syne\',sans-serif;font-weight:700;font-size:17px;margin-bottom:4px">' + SIS.utils.escHtml(room.name||'') + '</h3>' +
-        '<p style="font-size:13px;color:var(--text2)">' + SIS.utils.escHtml(room.description||'') + '</p></div>' +
-        '<div class="room-info-section"><div class="room-info-section-title">Paramètres</div>' +
-        '<div style="font-size:13px;color:var(--text2)">Type : ' + (room.type||'public') + '</div>' +
-        '<div style="font-size:13px;color:var(--text2);margin-top:4px">Slow mode : ' + (room.slowMode||0) + 's</div></div>';
-
-      /* Membres, avec actions promouvoir/retirer pour les admins (façon WhatsApp) */
-      if (room.type !== 'canal') {
-        content.innerHTML += '<div class="room-info-section"><div class="room-info-section-title">Membres</div><div id="room-members-list"></div></div>';
-        if (room.members) {
-          var memberList = content.querySelector('#room-members-list');
-          Object.entries(room.members).forEach(function(entry) {
-            var memberUid = entry[0], memberRole = entry[1];
-            SIS.authHelper.getProfile(memberUid).then(function(profile) {
-              if (!profile || !memberList) return;
-              var item = document.createElement('div');
-              item.className = 'room-member-item';
-              var actionsHtml = '';
-              if (isAdmin && memberUid !== user.uid) {
-                actionsHtml =
-                  '<div class="room-member-actions">' +
-                    (memberRole !== 'admin'
-                      ? '<button data-act="promote" title="Promouvoir admin">⬆️</button>'
-                      : '<button data-act="demote" title="Rétrograder">⬇️</button>') +
-                    '<button data-act="kick" title="Retirer du salon">✕</button>' +
-                  '</div>';
-              }
-              item.innerHTML =
-                SIS.renderAvatar({ pseudo: profile.pseudo||'?', photoUrl: profile.photoUrl, certified: profile.certified, size:'xs', gradient: SIS.utils.pseudoToGradient(profile.pseudo||'') }) +
-                '<span style="font-size:13px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + SIS.utils.escHtml(profile.pseudo||'?') + '</span>' +
-                '<span class="room-member-role ' + (memberRole==='admin'?'role-admin':'role-mod') + '">' + memberRole + '</span>' +
-                actionsHtml;
-              memberList.appendChild(item);
-
-              if (isAdmin && memberUid !== user.uid) {
-                var promoteBtn = item.querySelector('[data-act="promote"]');
-                var demoteBtn  = item.querySelector('[data-act="demote"]');
-                var kickBtn    = item.querySelector('[data-act="kick"]');
-                if (promoteBtn) promoteBtn.addEventListener('click', function(){
-                  SIS.db.collection('salons').doc(room.id).update({ ['members.'+memberUid]: 'admin' })
-                    .then(function(){ room.members[memberUid]='admin'; item.querySelector('.room-member-role').textContent='admin'; item.querySelector('.room-member-role').className='room-member-role role-admin'; SIS.toast.success('Promu admin'); })
-                    .catch(function(e){ SIS.toast.error(e.message||'Action impossible'); });
-                });
-                if (demoteBtn) demoteBtn.addEventListener('click', function(){
-                  SIS.db.collection('salons').doc(room.id).update({ ['members.'+memberUid]: 'member' })
-                    .then(function(){ room.members[memberUid]='member'; item.querySelector('.room-member-role').textContent='member'; item.querySelector('.room-member-role').className='room-member-role role-mod'; SIS.toast.success('Rétrogradé'); })
-                    .catch(function(e){ SIS.toast.error(e.message||'Action impossible'); });
-                });
-                if (kickBtn) kickBtn.addEventListener('click', function(){
-                  if (!window.confirm('Retirer ' + (profile.pseudo||'ce membre') + ' du salon ?')) return;
-                  SIS.db.collection('salons').doc(room.id).update({ ['members.'+memberUid]: firebase.firestore.FieldValue.delete() })
-                    .then(function(){ delete room.members[memberUid]; item.remove(); SIS.toast.success('Membre retiré'); })
-                    .catch(function(e){ SIS.toast.error(e.message||'Action impossible'); });
-                });
-              }
-            });
-          });
-        }
-      }
-
-      /* Partager le lien */
-      content.innerHTML += '<div class="room-info-section">' +
-        '<button class="btn-primary" onclick="(function(){var l=\''+window.location.origin+'/chat.html?room='+room.id+'\';navigator.clipboard&&navigator.clipboard.writeText(l).then(function(){});})()">Copier le lien du salon</button></div>';
-
-      /* FEATURE : zone admin façon WhatsApp — changer la photo, supprimer le
-         salon. Auparavant ce panel était en lecture seule (à part copier le
-         lien) : impossible de gérer le salon depuis l'app. */
-      if (isAdmin && room.type !== 'dm') {
-        content.innerHTML += '<div class="room-info-section"><div class="room-info-section-title">Zone admin</div>' +
-          '<button class="btn-ghost" id="btn-change-room-photo" style="width:100%;margin-bottom:8px">🖼️ Changer la photo du salon</button>' +
-          '<button class="btn-ghost danger-btn" id="btn-delete-room" style="width:100%">🗑️ Supprimer le salon</button>' +
-          '</div>';
-
-        var changePhotoBtn = content.querySelector('#btn-change-room-photo');
-        if (changePhotoBtn) changePhotoBtn.addEventListener('click', function(){
-          q('room-info-photo-input').click();
-        });
-
-        var deleteBtn = content.querySelector('#btn-delete-room');
-        if (deleteBtn) deleteBtn.addEventListener('click', function(){
-          if (!window.confirm('Supprimer définitivement "' + (room.name||'ce salon') + '" ? Cette action est irréversible.')) return;
-          deleteBtn.disabled = true; deleteBtn.textContent = 'Suppression…';
-          SIS.db.collection('salons').doc(room.id).delete()
-            .then(function(){
-              SIS.toast.success('Salon supprimé');
-              hideOverlay('room-info-overlay');
-              goBack();
-              loadSalons();
-            })
-            .catch(function(e){
-              deleteBtn.disabled = false; deleteBtn.textContent = '🗑️ Supprimer le salon';
-              SIS.toast.error(e.message || 'Suppression impossible');
-            });
-        });
-      }
-
-      showOverlay('room-info-overlay');
-    }
-
-    /* ── ADMIN PANEL ── */
-    function openAdminPanel() {
-      var content = q('admin-content');
-      if (!content) return;
-
-      /* Stats globales */
-      content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Chargement…</div>';
-      Promise.all([
-        SIS.db.collection('users').get(),
-        SIS.db.collection('posts').get(),
-        SIS.db.collection('reports').where('resolved','==',false).get(),
-        SIS.db.collection('users').where('banned','==',true).get(),
-        SIS.db.collection('certif_requests').where('status','==','pending').get()
-      ]).then(function(results) {
-        content.innerHTML =
-          '<div class="admin-stat-grid">' +
-            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[0].size + '</div><div class="admin-stat-lbl">Utilisateurs</div></div>' +
-            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[1].size + '</div><div class="admin-stat-lbl">Messages</div></div>' +
-            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[2].size + '</div><div class="admin-stat-lbl">Signalements</div></div>' +
-            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[3].size + '</div><div class="admin-stat-lbl">Bannis</div></div>' +
-          '</div>';
-
-        /* FEATURE : demandes de certification en attente. Avant, la demande
-           partait bien dans Firestore mais rien dans l'app ne permettait de
-           l'approuver — 'certified' ne pouvait passer à true qu'en éditant
-           la base à la main. */
-        var certifRequests = results[4];
-        content.innerHTML +=
-          '<div style="margin-top:16px">' +
-            '<label class="input-label">Demandes de certification (' + certifRequests.size + ')</label>' +
-            '<div id="admin-certif-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>' +
-          '</div>';
-
-        var certifList = q('admin-certif-list');
-        if (certifRequests.empty) {
-          certifList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:10px 0">Aucune demande en attente.</div>';
-        } else {
-          certifRequests.forEach(function(reqDoc) {
-            var r = reqDoc.data();
-            var row = document.createElement('div');
-            row.style.cssText = 'display:flex;gap:10px;align-items:center;background:var(--card2);border-radius:12px;padding:10px';
-            row.innerHTML =
-              '<img src="'+SIS.cloudinary.url(r.idPhotoUrl,'thumb')+'" alt="Pièce d\'identité" ' +
-                'style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer" ' +
-                'onerror="console.error(\'Image admin certif échouée:\',this.src);this.style.opacity=0.3" ' +
-                'onclick="window.open(this.src.replace(/thumb.*upload/,\'upload\'),\'_blank\')">' +
-              '<div style="flex:1;min-width:0;font-size:12px;color:var(--text)">' +
-                '<div style="font-weight:700">'+SIS.utils.escHtml(r.pseudo||'?')+' · '+SIS.utils.escHtml(r.prenom||'')+' '+SIS.utils.escHtml(r.nom||'')+'</div>' +
-                '<div style="color:var(--muted)">'+SIS.utils.escHtml(r.ville||'')+', '+SIS.utils.escHtml(r.pays||'')+' · '+(r.age||'?')+' ans</div>' +
-                (r.avis ? '<div style="color:var(--muted);font-style:italic;margin-top:2px">"'+SIS.utils.escHtml(SIS.utils.truncate(r.avis,80))+'"</div>' : '') +
-              '</div>' +
-              '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">' +
-                '<button class="btn-primary btn-sm" data-action="approve">✓</button>' +
-                '<button class="btn-ghost btn-sm danger-btn" data-action="reject">✕</button>' +
-              '</div>';
-
-            row.querySelector('[data-action="approve"]').addEventListener('click', function(){
-              handleCertifDecision(reqDoc.id, r, true, row);
-            });
-            row.querySelector('[data-action="reject"]').addEventListener('click', function(){
-              handleCertifDecision(reqDoc.id, r, false, row);
-            });
-            certifList.appendChild(row);
-          });
-        }
-
-        /* Annonce globale */
-        content.innerHTML +=
-          '<div style="margin-top:16px">' +
-            '<label class="input-label">Annonce globale</label>' +
-            '<textarea id="admin-annonce" class="input" rows="3" placeholder="Message pour tous les salons…"></textarea>' +
-            '<button class="btn-primary" style="margin-top:8px" id="btn-send-annonce">Envoyer l\'annonce</button>' +
-          '</div>';
-
-        var btn = q('btn-send-annonce');
-        if (btn) {
-          btn.addEventListener('click', function() {
-            var msg = q('admin-annonce').value.trim();
-            if (!msg) return;
-            SIS.db.collection('salons').get().then(function(snap) {
-              var batch = SIS.db.batch();
-              snap.forEach(function(doc) {
-                var ref = SIS.db.collection('salons').doc(doc.id).collection('messages').doc();
-                batch.set(ref, {
-                  authorUid: user.uid, pseudo: '📢 SIS Officiel', certified: true,
-                  text: msg, createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                  reactions: {}, system: true
-                });
-              });
-              return batch.commit();
-            }).then(function(){ SIS.toast.success('Annonce envoyée dans tous les salons !'); });
-          });
-        }
-      }).catch(function(err) {
-        console.error('[SIS] Admin panel load échoué:', err);
-        content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:13px">Erreur de chargement : ' + SIS.utils.escHtml(err.message||'inconnue') + '<br><span style="color:var(--muted)">Vérifie les règles Firestore pour ce compte admin.</span></div>';
-      });
-
-      showOverlay('admin-panel-overlay');
-    }
-
-    /* Approuver/rejeter une demande de certification : bascule le badge et
-       prévient la personne, en une seule action au lieu d'un aller-retour
-       manuel dans la console Firebase. */
-    function handleCertifDecision(reqId, reqData, approve, rowEl) {
-      rowEl.style.opacity = '0.5';
-      rowEl.style.pointerEvents = 'none';
-
-      var updates = SIS.db.collection('certif_requests').doc(reqId)
-        .update({ status: approve ? 'approved' : 'rejected', reviewedAt: firebase.firestore.FieldValue.serverTimestamp() });
-
-      if (approve) {
-        updates = updates.then(function(){
-          return SIS.db.collection('users').doc(reqData.uid).update({ certified: true });
-        });
-      }
-
-      updates.then(function(){
-        SIS.notifs.push(reqData.uid, SIS.notifs.TYPES.SYSTEM, {
-          msg: approve
-            ? '✅ Ta demande de certification a été approuvée !'
-            : 'Ta demande de certification n\'a pas été retenue. Tu peux la soumettre à nouveau avec plus de détails.',
-          type: 'certif_result'
-        });
-        rowEl.remove();
-        SIS.toast.success(approve ? 'Certifié ✓' : 'Demande rejetée');
-      }).catch(function(err){
-        rowEl.style.opacity = '';
-        rowEl.style.pointerEvents = '';
-        SIS.toast.error(err.message || 'Action impossible');
-      });
-    }
-
-    /* ── SCROLL BAS ── */
-    function scrollToBottom(el) {
-      if (el) setTimeout(function(){ el.scrollTop = el.scrollHeight; }, 80);
-    }
-
-    /* ── GIF SEARCH CHAT ── */
-    var gifSearchChat = SIS.utils.debounce(function(query) {
-      if (!query) { q('gif-results-chat').innerHTML=''; return; }
-      var url = 'https://tenor.googleapis.com/v2/search?q='+encodeURIComponent(query)+'&key='+cd.TENOR_KEY+'&limit=12&media_filter=gif';
-      fetch(url).then(function(r){ return r.json(); }).then(function(data) {
-        var results = q('gif-results-chat');
-        if (!results) return;
-        results.innerHTML = '';
-        (data.results||[]).forEach(function(item) {
-          var gif = item.media_formats && item.media_formats.tinygif ? item.media_formats.tinygif.url : null;
-          if (!gif) return;
-          var el = document.createElement('div');
-          el.className = 'gif-item';
-          el.innerHTML = '<img src="'+gif+'" loading="lazy" alt="GIF">';
-          el.addEventListener('click', function(){ sendGif(gif); });
-          results.appendChild(el);
-        });
-      });
-    }, 500);
-
-    /* ── BIND EVENTS ── */
-    function bindEvents() {
-      /* Tabs */
-      qsa('.tab-item', q('chat-main-tabs')).forEach(function(tab) {
-        tab.addEventListener('click', function() { switchTab(tab.getAttribute('data-tab')); });
-      });
-
-      /* Catégories salons */
-      qsa('.scat').forEach(function(cat) {
-        cat.addEventListener('click', function() {
-          qsa('.scat').forEach(function(c){ c.classList.remove('active'); });
-          cat.classList.add('active');
-          cd.currentCat = cat.getAttribute('data-cat');
-          loadSalons();
-        });
-      });
-
-      /* Retour */
-      q('btn-room-back') && q('btn-room-back').addEventListener('click', goBack);
-      q('btn-mystere-back') && q('btn-mystere-back').addEventListener('click', function() {
-        if (cd.unsubMessages) { cd.unsubMessages(); cd.unsubMessages=null; }
-        if (cd.unwatchPresence) { cd.unwatchPresence(); cd.unwatchPresence=null; }
-        cd.mystereMatchId = null;
-        showView('chat-home');
-      });
-
-      /* Room info */
-      q('btn-room-info') && q('btn-room-info').addEventListener('click', openRoomInfo);
-      q('room-info-overlay') && q('room-info-overlay').addEventListener('click', function(e){ if(e.target===this) hideOverlay('room-info-overlay'); });
-      q('room-info-photo-input') && q('room-info-photo-input').addEventListener('change', function() {
-        var file = this.files && this.files[0];
-        if (!file || !cd.currentRoom) return;
-        var room = cd.currentRoom;
-        SIS.image.processAndUpload(file, { type: 'avatar' }).then(function(result) {
-          return SIS.db.collection('salons').doc(room.id).update({ photoUrl: result.publicId }).then(function(){
-            room.photoUrl = result.publicId;
-            var wrap = q('room-info-avatar-wrap');
-            if (wrap) wrap.innerHTML = SIS.renderAvatar({ pseudo: room.name||'?', photoUrl: room.photoUrl, size:'md', gradient: SIS.utils.pseudoToGradient(room.name||'') });
-            SIS.toast.success('Photo du salon mise à jour');
-          });
-        }).catch(function(e){ SIS.toast.error(e.message || 'Upload impossible'); });
-        this.value = '';
-      });
-
-      /* Send message */
-      var sendBtn = q('btn-send-msg');
-      var msgInput = q('chat-msg-input');
-      if (sendBtn) sendBtn.addEventListener('click', function() {
-        var text = msgInput ? msgInput.value.trim() : '';
-        if (!text) return;
-        if (msgInput) msgInput.value = '';
-        sendMessage(text);
-      });
-      if (msgInput) msgInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          var text = this.value.trim();
-          if (!text) return;
-          this.value = '';
-          sendMessage(text);
-        }
-      });
-
-      /* Reply cancel */
-      q('reply-cancel') && q('reply-cancel').addEventListener('click', resetReplyUI);
-
-      /* Attach image */
-      q('btn-attach') && q('btn-attach').addEventListener('click', function(){ q('chat-file-input').click(); });
-      q('chat-file-input') && q('chat-file-input').addEventListener('change', function(){ sendImage(this.files&&this.files[0]); });
-
-      /* GIF */
-      q('btn-gif') && q('btn-gif').addEventListener('click', function(){ showOverlay('gif-overlay'); q('gif-search-chat').focus(); });
-      q('gif-overlay') && q('gif-overlay').addEventListener('click', function(e){ if(e.target===this) hideOverlay('gif-overlay'); });
-      q('gif-search-chat') && q('gif-search-chat').addEventListener('input', function(){ gifSearchChat(this.value.trim()); });
-
-      /* Messages vocaux (remplace les sondages) */
-      q('btn-voice-msg') && q('btn-voice-msg').addEventListener('click', startVoiceRecording);
-      q('btn-cancel-voice') && q('btn-cancel-voice').addEventListener('click', cancelVoiceRecording);
-      q('btn-send-voice') && q('btn-send-voice').addEventListener('click', sendVoiceRecording);
-
-      /* Créer salon */
-      q('btn-create-salon') && q('btn-create-salon').addEventListener('click', function(){
-        if (!user) { window.location.href='auth.html'; return; }
-        showOverlay('create-salon-overlay');
-      });
-      q('create-salon-overlay') && q('create-salon-overlay').addEventListener('click', function(e){ if(e.target===this) hideOverlay('create-salon-overlay'); });
-      q('btn-create-salon-confirm') && q('btn-create-salon-confirm').addEventListener('click', createSalon);
-
-      /* Type salon */
-      qsa('.salon-type-opt').forEach(function(opt) {
-        opt.addEventListener('click', function() {
-          qsa('.salon-type-opt').forEach(function(o){ o.classList.remove('active'); });
-          opt.classList.add('active');
-          var isPwd = opt.getAttribute('data-type') === 'private';
-          var grp = q('salon-pwd-group');
-          if (grp) grp.style.display = isPwd ? 'block' : 'none';
-        });
-      });
-
-      /* Desc count */
-      q('salon-desc') && q('salon-desc').addEventListener('input', function(){
-        var el = q('salon-desc-count');
-        if (el) el.textContent = this.value.length;
-      });
-
-      /* Salon photo */
-      q('salon-photo-upload') && q('salon-photo-upload').addEventListener('click', function(){ q('salon-photo-input').click(); });
-      q('salon-photo-input') && q('salon-photo-input').addEventListener('change', function(){
-        var file = this.files && this.files[0];
-        if (!file) return;
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          var prev = q('salon-photo-preview');
-          if (prev) prev.innerHTML = '<img src="'+e.target.result+'" alt="Aperçu">';
-        };
-        reader.readAsDataURL(file);
-      });
-
-      /* Password salon */
-      q('btn-salon-pwd-cancel') && q('btn-salon-pwd-cancel').addEventListener('click', function(){ hideOverlay('salon-pwd-overlay'); });
-
-      /* Mystère */
-      q('btn-start-mystere') && q('btn-start-mystere').addEventListener('click', startMystereSearch);
-      q('btn-cancel-mystere') && q('btn-cancel-mystere').addEventListener('click', cancelMystereSearch);
-      q('btn-end-mystere') && q('btn-end-mystere').addEventListener('click', function(){
-        if (cd.unsubMessages) { cd.unsubMessages(); cd.unsubMessages=null; }
-        cd.mystereMatchId = null;
-        showView('chat-home');
-      });
-
-      /* Send mystère */
-      var mystereBtn = q('btn-send-mystere');
-      var mystereInput = q('mystere-msg-input');
-      if (mystereBtn) mystereBtn.addEventListener('click', sendMystereMessage);
-      if (mystereInput) mystereInput.addEventListener('keydown', function(e){
-        if (e.key==='Enter') { e.preventDefault(); sendMystereMessage(); }
-      });
-
-      /* Réactions mystère */
-      qsa('.mreact').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          if (!cd.mystereMatchId) return;
-          SIS.reactionStorm(btn.getAttribute('data-r'), window.innerWidth/2, window.innerHeight/2);
-        });
-      });
-
-      /* Admin close */
-      q('admin-close') && q('admin-close').addEventListener('click', function(){ hideOverlay('admin-panel-overlay'); });
-
-      /* Context overlays */
-      q('msg-context-overlay') && q('msg-context-overlay').addEventListener('click', function(e){ if(e.target===this) hideOverlay('msg-context-overlay'); });
-
-      /* Délégation réactions dans messages */
-      ['messages-list','mystere-messages-list'].forEach(function(listId) {
-        var list = q(listId);
-        if (!list) return;
-        list.addEventListener('click', function(e) {
-          var pill = e.target.closest('.msg-react-pill');
-          if (pill) {
-            reactToMessage(pill.getAttribute('data-msg'), pill.getAttribute('data-emoji'));
-          }
-          var pollOpt = e.target.closest('[data-msg-poll]');
-          if (pollOpt) {
-            /* Vote sondage chat */
-            var msgId = pollOpt.getAttribute('data-msg-poll');
-            var idx = parseInt(pollOpt.getAttribute('data-idx'),10);
-            var voteKey = 'poll_vote_' + msgId;
-            if (localStorage.getItem(voteKey)) { SIS.toast.info('Déjà voté'); return; }
-            localStorage.setItem(voteKey, idx);
-            if (!cd.currentRoom) return;
-            var coll = cd.currentRoom.type==='dm' ? 'dms/'+cd.currentRoom.id+'/messages' : 'salons/'+cd.currentRoom.id+'/messages';
-            var update = {};
-            update['poll.options.'+idx+'.votes'] = firebase.firestore.FieldValue.increment(1);
-            SIS.db.collection(coll).doc(msgId).update(update).catch(function(){});
-          }
-
-          /* FEATURE : lecture des messages vocaux */
-          var playBtn = e.target.closest('.msg-audio-play');
-          if (playBtn) {
-            var container = playBtn.closest('.msg-audio');
-            var audioEl = container && container.querySelector('audio');
-            if (!audioEl) return;
-            if (audioEl.paused) {
-              /* Un seul vocal à la fois : on met en pause tous les autres */
-              qsa('.msg-audio audio').forEach(function(a) { if (a !== audioEl) { a.pause(); a.currentTime = 0; } });
-              qsa('.msg-audio-play').forEach(function(b) { if (b !== playBtn) b.classList.remove('playing'); });
-              audioEl.play().catch(function(){ SIS.toast.error('Lecture impossible'); });
-              playBtn.classList.add('playing');
-            } else {
-              audioEl.pause();
-              playBtn.classList.remove('playing');
-            }
-          }
-        });
-      });
-
-      /* URL params : ouvrir DM, salon, ou panel admin direct */
-      var params = new URLSearchParams(window.location.search);
-      var dmPseudo  = params.get('dm');
-      var roomId    = params.get('room');
-      var wantAdmin = params.get('admin');
-
-      /* FIX BUG CONFIRMÉ : le panel admin (et la revue de certification)
-         n'était accessible qu'en ouvrant d'abord un salon de chat au hasard
-         — le bouton n'existait nulle part ailleurs. Autant dire injoignable
-         en pratique. Point d'entrée direct et fiable maintenant. */
-      if (wantAdmin && user && user.email === 'gbaguidiexauce@gmail.com') {
-        openAdminPanel();
-      }
-
-      if (dmPseudo) {
-        /* Ouvrir DM avec ce pseudo */
-        SIS.db.collection('users').where('pseudo','==',dmPseudo).limit(1).get().then(function(snap) {
-          if (!snap.empty) {
-            var other = snap.docs[0].data();
-            var otherUid = snap.docs[0].id;
-            /* Trouver ou créer le DM */
-            var dmId = [user.uid, otherUid].sort().join('_');
-            SIS.db.collection('dms').doc(dmId).set({
-              participants: [user.uid, otherUid],
-              lastMsg: '', lastMsgAt: firebase.firestore.FieldValue.serverTimestamp(),
-              unread: {}
-            }, { merge: true }).then(function(){
-              switchTab('dms');
-              openRoom(dmId, { name: other.pseudo||'?', type:'dm', otherUid: otherUid, photoUrl: other.photoUrl||null, certified: other.certified||false });
-            });
-          }
-        });
-      } else if (roomId) {
-        SIS.db.collection('salons').doc(roomId).get().then(function(doc) {
-          if (doc.exists) openRoom(roomId, doc.data());
-        });
-      }
-    }
-
-    /* ── INIT ── */
-    bindEvents();
-    loadSalons();
-    SIS.injectBottomNav('chat');
-
-    /* FIX-BOTTOMNAV-1: Clavier Android.
-       BUG corrigé : ce handler ignorait cd.currentView et remettait le nav
-       en 'flex' dès que le clavier se refermait, MÊME si une conversation
-       était ouverte — il revenait alors chevaucher la barre de saisie.
-       Il ne doit désormais jamais réapparaître en dehors de 'chat-home'. */
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', function () {
-        var nav = document.getElementById('bnav');
-        if (!nav) return;
-        if (cd.currentView !== 'chat-home') { nav.style.display = 'none'; return; }
-        nav.style.display = window.visualViewport.height < window.innerHeight * 0.75 ? 'none' : 'flex';
-      });
-    }
-  }
-
   /* ══════════════════════════════════════════════════════════
      MODULE PROFIL
   ══════════════════════════════════════════════════════════ */
@@ -4206,7 +1846,7 @@
         if (visitorActions) {
           visitorActions.style.display = 'flex';
           var msgBtn = q('btn-message-visitor');
-          if (msgBtn) msgBtn.href = 'chat.html?dm=' + encodeURIComponent(p.pseudo || '');
+          if (msgBtn) msgBtn.href = SIS.utils.anonLink(p.pseudo || '');
           var followBtn = q('btn-follow-visitor');
           if (followBtn) {
             followBtn.textContent = '…';
@@ -4614,6 +2254,149 @@
       });
     }
 
+    /* ── PANEL ADMIN — relocalisé depuis chat.html (supprimé avec le chat).
+       Stats globales, revue des demandes de certification, annonce. ── */
+    function openAdminPanel() {
+      var content = q('admin-content');
+      if (!content) return;
+
+      content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Chargement…</div>';
+      Promise.all([
+        SIS.db.collection('users').get(),
+        SIS.db.collection('lives').get(),
+        SIS.db.collection('reports').where('resolved','==',false).get(),
+        SIS.db.collection('users').where('banned','==',true).get(),
+        SIS.db.collection('certif_requests').where('status','==','pending').get()
+      ]).then(function(results) {
+        content.innerHTML =
+          '<div class="admin-stat-grid">' +
+            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[0].size + '</div><div class="admin-stat-lbl">Utilisateurs</div></div>' +
+            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[1].size + '</div><div class="admin-stat-lbl">Lives (total)</div></div>' +
+            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[2].size + '</div><div class="admin-stat-lbl">Signalements</div></div>' +
+            '<div class="admin-stat-card"><div class="admin-stat-val">' + results[3].size + '</div><div class="admin-stat-lbl">Bannis</div></div>' +
+          '</div>';
+
+        var certifRequests = results[4];
+        content.innerHTML +=
+          '<div style="margin-top:16px">' +
+            '<label class="input-label">Demandes de certification (' + certifRequests.size + ')</label>' +
+            '<div id="admin-certif-list" style="display:flex;flex-direction:column;gap:8px;margin-top:8px"></div>' +
+          '</div>';
+
+        var certifList = q('admin-certif-list');
+        if (certifRequests.empty) {
+          certifList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:10px 0">Aucune demande en attente.</div>';
+        } else {
+          certifRequests.forEach(function(reqDoc) {
+            var r = reqDoc.data();
+            var row = document.createElement('div');
+            row.style.cssText = 'display:flex;gap:10px;align-items:center;background:var(--card2);border-radius:12px;padding:10px';
+            row.innerHTML =
+              '<img src="'+SIS.cloudinary.url(r.idPhotoUrl,'thumb')+'" alt="Pièce d\'identité" ' +
+                'style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;cursor:pointer" ' +
+                'onerror="console.error(\'Image admin certif échouée:\',this.src);this.style.opacity=0.3" ' +
+                'onclick="window.open(this.src.replace(/thumb.*upload/,\'upload\'),\'_blank\')">' +
+              '<div style="flex:1;min-width:0;font-size:12px;color:var(--text)">' +
+                '<div style="font-weight:700">'+SIS.utils.escHtml(r.pseudo||'?')+' · '+SIS.utils.escHtml(r.prenom||'')+' '+SIS.utils.escHtml(r.nom||'')+'</div>' +
+                '<div style="color:var(--muted)">'+SIS.utils.escHtml(r.ville||'')+', '+SIS.utils.escHtml(r.pays||'')+' · '+(r.age||'?')+' ans</div>' +
+                (r.avis ? '<div style="color:var(--muted);font-style:italic;margin-top:2px">"'+SIS.utils.escHtml(SIS.utils.truncate(r.avis,80))+'"</div>' : '') +
+              '</div>' +
+              '<div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">' +
+                '<button class="btn-primary btn-sm" data-action="approve" aria-label="Approuver"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></button>' +
+                '<button class="btn-ghost btn-sm danger-btn" data-action="reject" aria-label="Rejeter"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>' +
+              '</div>';
+
+            row.querySelector('[data-action="approve"]').addEventListener('click', function(){
+              handleCertifDecision(reqDoc.id, r, true, row);
+            });
+            row.querySelector('[data-action="reject"]').addEventListener('click', function(){
+              handleCertifDecision(reqDoc.id, r, false, row);
+            });
+            certifList.appendChild(row);
+          });
+        }
+
+        /* Annonce globale — adapté : salons n'existe plus, on notifie
+           chaque utilisateur directement au lieu d'écrire dans des salons. */
+        content.innerHTML +=
+          '<div style="margin-top:16px">' +
+            '<label class="input-label">Annonce globale</label>' +
+            '<textarea id="admin-annonce" class="input" rows="3" placeholder="Message pour tous les utilisateurs…"></textarea>' +
+            '<button class="btn-primary" style="margin-top:8px" id="btn-send-annonce">Envoyer l\'annonce</button>' +
+          '</div>';
+
+        var btn = q('btn-send-annonce');
+        if (btn) {
+          btn.addEventListener('click', function() {
+            var msg = q('admin-annonce').value.trim();
+            if (!msg) return;
+            if (!window.confirm('Envoyer cette annonce à tous les utilisateurs ?')) return;
+            btn.disabled = true; btn.textContent = 'Envoi…';
+            SIS.db.collection('users').get().then(function(snap) {
+              var docs = snap.docs;
+              var batchSize = 400; /* limite Firestore : 500 écritures/batch, marge de sécurité */
+              var chains = [];
+              for (var i = 0; i < docs.length; i += batchSize) {
+                (function(slice) {
+                  var batch = SIS.db.batch();
+                  slice.forEach(function(doc) {
+                    var ref = SIS.db.collection('notifications').doc(doc.id).collection('items').doc();
+                    batch.set(ref, {
+                      type: SIS.notifs.TYPES.SYSTEM, msg: '📢 ' + msg,
+                      read: false, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                  });
+                  chains.push(batch.commit());
+                })(docs.slice(i, i + batchSize));
+              }
+              return Promise.all(chains);
+            }).then(function(){
+              btn.disabled = false; btn.textContent = 'Envoyer l\'annonce';
+              q('admin-annonce').value = '';
+              SIS.toast.success('Annonce envoyée à tous les utilisateurs !');
+            }).catch(function(err){
+              btn.disabled = false; btn.textContent = 'Envoyer l\'annonce';
+              SIS.toast.error(err.message || 'Envoi impossible');
+            });
+          });
+        }
+      }).catch(function(err) {
+        console.error('[SIS] Admin panel load échoué:', err);
+        content.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red);font-size:13px">Erreur de chargement : ' + SIS.utils.escHtml(err.message||'inconnue') + '<br><span style="color:var(--muted)">Vérifie les règles Firestore pour ce compte admin.</span></div>';
+      });
+
+      showO('admin-panel-overlay');
+    }
+
+    function handleCertifDecision(reqId, reqData, approve, rowEl) {
+      rowEl.style.opacity = '0.5';
+      rowEl.style.pointerEvents = 'none';
+
+      var updates = SIS.db.collection('certif_requests').doc(reqId)
+        .update({ status: approve ? 'approved' : 'rejected', reviewedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+      if (approve) {
+        updates = updates.then(function(){
+          return SIS.db.collection('users').doc(reqData.uid).update({ certified: true });
+        });
+      }
+
+      updates.then(function(){
+        SIS.notifs.push(reqData.uid, SIS.notifs.TYPES.SYSTEM, {
+          msg: approve
+            ? '✅ Ta demande de certification a été approuvée !'
+            : 'Ta demande de certification n\'a pas été retenue. Tu peux la soumettre à nouveau avec plus de détails.',
+          type: 'certif_result'
+        });
+        rowEl.remove();
+        SIS.toast.success(approve ? 'Certifié ✓' : 'Demande rejetée');
+      }).catch(function(err){
+        rowEl.style.opacity = '';
+        rowEl.style.pointerEvents = '';
+        SIS.toast.error(err.message || 'Action impossible');
+      });
+    }
+
     /* ── SUPPRIMER COMPTE ── */
     function deleteAccount() {
       if (!confirm('Cette action est irréversible. Confirmes-tu la suppression de ton compte ?')) return;
@@ -4630,6 +2413,8 @@
         var adminSection = q('settings-admin-section');
         if (adminSection) adminSection.style.display = 'block';
       }
+      q('btn-open-admin') && q('btn-open-admin').addEventListener('click', openAdminPanel);
+      q('admin-close') && q('admin-close').addEventListener('click', function(){ hideO('admin-panel-overlay'); });
 
       /* Tabs */
       qsa('.ptab').forEach(function(tab) {
@@ -4884,7 +2669,9 @@
 
             /* FIX: seuls 2-3 types sur 9 avaient une vraie navigation.
                Chaque type gère maintenant son action au clic. */
-            if (d.postId) {
+            if (d.liveId) {
+              window.location.href = 'feed.html?live=' + d.liveId;
+            } else if (d.postId) {
               window.location.href = 'feed.html?post='+d.postId;
             } else if (d.type === 'follow') {
               if (d.fromUid) window.location.href = 'profil.html?uid=' + d.fromUid;
@@ -4930,276 +2717,6 @@
     SIS.injectBottomNav('notifs');
   }
 
-  /* ══════════════════════════════════════════════════════════
-     MODULE DÉCOUVRIR
-  ══════════════════════════════════════════════════════════ */
-  function initDiscover(user) {
-    function q(id) { return document.getElementById(id); }
-    function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
-
-    var searchDebounced = SIS.utils.debounce(function(query) {
-      if (!query) {
-        q('search-results').style.display = 'none';
-        q('disc-content').style.display = 'block';
-        return;
-      }
-      q('search-results').style.display = 'block';
-      q('disc-content').style.display = 'none';
-      performSearch(query);
-    }, 350);
-
-    function performSearch(query) {
-      var list = q('search-results-list');
-      if (!list) return;
-      list.innerHTML = '<div class="notif-skeleton"><div class="skeleton" style="width:38px;height:38px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:13px;width:55%"></div></div></div>';
-
-      /* Recherche utilisateurs (pseudo commence par query) */
-      /* FIX BUG CONFIRMÉ: recherche sur 'pseudo' (sensible à la casse) ->
-         chercher "alex" ne trouvait jamais "Alexandre". On cherche
-         maintenant sur 'pseudoLower' avec la requête en minuscule.
-         NOTE: les comptes créés avant ce correctif n'ont pas encore ce champ
-         -> ils ne ressortiront en recherche qu'après une prochaine
-         sauvegarde de leur profil (qui le remplit rétroactivement). */
-      SIS.db.collection('users')
-        .where('pseudoLower','>=', query.toLowerCase())
-        .where('pseudoLower','<=', query.toLowerCase()+'\uf8ff')
-        .limit(5).get()
-        .then(function(snap) {
-          list.innerHTML = '';
-          snap.forEach(function(doc) {
-            var d = doc.data();
-            var item = document.createElement('div');
-            item.className = 'search-result-item';
-            item.innerHTML =
-              SIS.renderAvatar({ pseudo:d.pseudo||'?', photoUrl:d.photoUrl||null, certified:d.certified||false, size:'sm', gradient:SIS.utils.pseudoToGradient(d.pseudo||'') }) +
-              '<div style="flex:1;min-width:0">' +
-                '<div style="font-size:13px;font-weight:600;color:var(--text)">'+SIS.utils.escHtml(d.pseudo||'?')+'</div>' +
-                '<div style="font-size:11px;color:var(--muted)">'+SIS.utils.formatCount(d.followers||0)+' abonnés</div>' +
-              '</div>' +
-              '<span class="search-result-type srt-user">User</span>';
-            item.addEventListener('click', function(){ SIS.profilePopup.show(d.pseudo); });
-            SIS.bindAvatarClicks(item);
-            list.appendChild(item);
-          });
-
-          /* Recherche hashtags dans les posts */
-          /* FIX: where(hidden)+where(hashtags array-contains) sur deux champs
-             différents peut nécessiter un index composite -> on garde
-             uniquement le array-contains (sûr seul) et on filtre 'hidden'
-             côté client. */
-          SIS.db.collection('posts')
-            .where('hashtags','array-contains',query.toLowerCase())
-            .limit(10).get()
-            .then(function(psnap) {
-              var docs = psnap.docs.filter(function(doc){ return !doc.data().hidden; }).slice(0, 5);
-              docs.forEach(function(doc) {
-                var d = doc.data();
-                var item = document.createElement('div');
-                item.className = 'search-result-item';
-                item.innerHTML =
-                  '<div style="width:38px;height:38px;border-radius:50%;background:rgba(139,92,246,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">#</div>' +
-                  '<div style="flex:1;min-width:0">' +
-                    '<div style="font-size:13px;font-weight:600;color:var(--text)">'+SIS.utils.escHtml(SIS.utils.truncate(d.text||'',50))+'</div>' +
-                    '<div style="font-size:11px;color:var(--muted)">'+SIS.utils.timeAgo(d.createdAt)+'</div>' +
-                  '</div>' +
-                  '<span class="search-result-type srt-post">Post</span>';
-                item.addEventListener('click', function(){ window.location.href='feed.html?post='+doc.id; });
-                list.appendChild(item);
-              });
-
-              if (list.children.length === 0) {
-                list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Aucun résultat pour "'+SIS.utils.escHtml(query)+'"</div>';
-              }
-            });
-        });
-    }
-
-    function loadTrending() {
-      var wrap = q('trending-tags');
-      if (!wrap) return;
-
-      /* Tags hardcodés + dynamiques */
-      var staticTags = [
-        { tag:'confession', count: 0 },
-        { tag:'vérité',     count: 0 },
-        { tag:'drama',      count: 0 },
-        { tag:'bénin',      count: 0 },
-        { tag:'amour',      count: 0 },
-        { tag:'anonymous',  count: 0 }
-      ];
-
-      /* FIX: where(hidden)+orderBy(createdAt) sur champs différents
-         nécessite un index composite -> oublié lors du précédent passage de
-         correction. Retiré, filtré côté client comme partout ailleurs. */
-      SIS.db.collection('posts')
-        .orderBy('createdAt','desc').limit(50).get()
-        .then(function(snap) {
-          var tagCount = {};
-          snap.docs.filter(function(doc){ return !doc.data().hidden; }).forEach(function(doc) {
-            var d = doc.data();
-            var text = (d.text||d.question||'').toLowerCase();
-            var matches = text.match(/#([a-zA-Z0-9_\u00C0-\u024F]{2,30})/g) || [];
-            matches.forEach(function(m) {
-              var t = m.slice(1);
-              tagCount[t] = (tagCount[t]||0) + 1;
-            });
-          });
-
-          /* Merger avec statiques */
-          staticTags.forEach(function(st) {
-            tagCount[st.tag] = (tagCount[st.tag]||0) + 100;
-          });
-
-          var sorted = Object.entries(tagCount)
-            .sort(function(a,b){ return b[1]-a[1]; })
-            .slice(0,12);
-
-          wrap.innerHTML = '';
-          sorted.forEach(function(entry, i) {
-            var chip = document.createElement('div');
-            chip.className = 'disc-tag';
-            chip.style.animationDelay = (i*0.04)+'s';
-            chip.innerHTML = '<span>#'+SIS.utils.escHtml(entry[0])+'</span><span class="disc-tag-count">'+SIS.utils.formatCount(entry[1])+'</span>';
-            chip.addEventListener('click', function() {
-              window.location.href = 'feed.html?hashtag='+encodeURIComponent(entry[0]);
-            });
-            wrap.appendChild(chip);
-          });
-        });
-    }
-
-    function loadSuggestedUsers() {
-      var wrap = q('suggested-users');
-      if (!wrap) return;
-
-      var query = SIS.db.collection('users').orderBy('followers','desc').limit(10);
-
-      query.get().then(function(snap) {
-        var docs = snap.docs.filter(function(doc){ return !(user && doc.id === user.uid); });
-        /* FIX BUG CONFIRMÉ : l'état "Suivre/Suivi" était toujours forcé à
-           false ("on ne vérifie pas pour l'instant"), et le clic écrivait
-           dans users.followers/following à la main sans jamais passer par
-           SIS.social — deux logiques de suivi différentes coexistaient
-           (celle-ci et celle, correcte, du popup profil), avec des risques
-           de double-suivi / compteurs négatifs. On unifie sur SIS.social,
-           seule source de vérité (collection 'follows'). */
-        return Promise.all(docs.map(function(doc){ return SIS.social.isFollowing(doc.id); }))
-          .then(function(states){ return { docs: docs, states: states }; });
-      }).then(function(result) {
-        wrap.innerHTML = '';
-        result.docs.forEach(function(doc, i) {
-          var d = doc.data();
-          var isFollowing = result.states[i];
-
-          var item = document.createElement('div');
-          item.className = 'disc-user-item';
-
-          var certSvg = d.certified
-            ? '<svg width="12" height="12" viewBox="0 0 24 24"><defs><linearGradient id="dcg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5B8EF4"/><stop offset="100%" stop-color="#8B5CF6"/></linearGradient></defs><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="url(#dcg)"/></svg>'
-            : '';
-
-          item.innerHTML =
-            SIS.renderAvatar({ pseudo:d.pseudo||'?', photoUrl:d.photoUrl||null, certified:d.certified||false, size:'sm', gradient:SIS.utils.pseudoToGradient(d.pseudo||''), onClick:function(p){ SIS.profilePopup.show(p); } }) +
-            '<div class="disc-user-info">' +
-              '<div class="disc-user-name">'+SIS.utils.escHtml(d.pseudo||'?')+certSvg+'</div>' +
-              '<div class="disc-user-sub">'+SIS.utils.formatCount(d.followers||0)+' abonnés</div>' +
-            '</div>' +
-            '<button class="btn-follow-disc '+(isFollowing?'following':'not-following')+'" data-uid="'+doc.id+'">'+(isFollowing?'Suivi ✓':'Suivre')+'</button>';
-
-          var btn = item.querySelector('.btn-follow-disc');
-          btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            if (!user) { window.location.href='auth.html'; return; }
-            if (btn.disabled) return;
-            var wasFollowing = btn.classList.contains('following');
-            btn.disabled = true;
-            btn.classList.toggle('following', !wasFollowing);
-            btn.classList.toggle('not-following', wasFollowing);
-            btn.textContent = !wasFollowing ? 'Suivi ✓' : 'Suivre';
-
-            SIS.social.toggleFollow(doc.id, wasFollowing).then(function(){
-              btn.disabled = false;
-            }).catch(function(err){
-              /* Rollback UI si l'écriture échoue (règles Firestore, rate limit...) */
-              btn.classList.toggle('following', wasFollowing);
-              btn.classList.toggle('not-following', !wasFollowing);
-              btn.textContent = wasFollowing ? 'Suivi ✓' : 'Suivre';
-              btn.disabled = false;
-              SIS.toast.error(err.message || 'Action impossible');
-            });
-          });
-
-          SIS.bindAvatarClicks(item);
-          wrap.appendChild(item);
-        });
-      });
-    }
-
-    function loadPopularPosts() {
-      var wrap = q('popular-posts');
-      if (!wrap) return;
-
-      /* FIX: where(hidden)+orderBy(echoCount) sur champs différents
-         nécessite un index composite -> retiré, filtré côté client. */
-      SIS.db.collection('posts')
-        .orderBy('echoCount','desc').limit(20).get()
-        .then(function(snap) {
-          var docs = snap.docs.filter(function(doc){ return !doc.data().hidden; }).slice(0, 5);
-          wrap.innerHTML = '';
-          docs.forEach(function(doc) {
-            var d = doc.data();
-            var card = document.createElement('div');
-            card.className = 'disc-post-card';
-            card.innerHTML =
-              '<div class="disc-post-header">' +
-                SIS.renderAvatar({ pseudo:d.authorPseudo||'Anonyme', photoUrl:d.identity==='name'?d.authorPhoto:null, certified:d.identity==='name'&&d.authorCertified, size:'xs', gradient:SIS.utils.pseudoToGradient(d.authorPseudo||'') }) +
-                '<div style="flex:1;min-width:0">' +
-                  '<div style="font-size:12px;font-weight:600;color:var(--text)">'+(d.identity==='anon'?'Anonyme':SIS.utils.escHtml(d.authorPseudo||'?'))+'</div>' +
-                  '<div style="font-size:10px;color:var(--muted)">'+SIS.utils.timeAgo(d.createdAt)+'</div>' +
-                '</div>' +
-                '<span class="post-type type-'+d.type+'">'+d.type+'</span>' +
-              '</div>' +
-              '<div class="disc-post-body">'+SIS.utils.parseText(SIS.utils.truncate(d.text||d.question||'',120))+'</div>' +
-              '<div class="disc-post-stats">' +
-                '<span>🔄 '+SIS.utils.formatCount(d.echoCount||0)+'</span>' +
-                '<span>💬 '+SIS.utils.formatCount(d.commentsCount||0)+'</span>' +
-              '</div>';
-            card.addEventListener('click', function(){ window.location.href='feed.html?post='+doc.id; });
-            SIS.bindAvatarClicks(card);
-            wrap.appendChild(card);
-          });
-        })
-        .catch(function(err){ console.warn('loadPopularPosts err', err); });
-    }
-
-    function bindEvents() {
-      var searchInput = q('disc-search-input');
-      var clearBtn = q('disc-search-clear');
-
-      if (searchInput) {
-        searchInput.addEventListener('input', function() {
-          var val = this.value.trim();
-          if (clearBtn) clearBtn.style.display = val ? 'flex' : 'none';
-          searchDebounced(val);
-        });
-      }
-
-      if (clearBtn) {
-        clearBtn.addEventListener('click', function() {
-          if (searchInput) searchInput.value = '';
-          clearBtn.style.display = 'none';
-          q('search-results').style.display = 'none';
-          q('disc-content').style.display = 'block';
-        });
-      }
-    }
-
-    bindEvents();
-    loadTrending();
-    loadSuggestedUsers();
-    loadPopularPosts();
-    SIS.injectBottomNav('decouvrir');
-  }
 
 
   /* ── APPEL BOOTSTRAP — après TOUTES les déclarations ── */

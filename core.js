@@ -629,7 +629,10 @@
     var _listener = null;
     var _unreadCount = 0;
 
-    /* Types de notif */
+    /* Types de notif. Les anciens types liés aux posts (like/comment/echo/
+       battle/burn) restent définis pour l'affichage correct des notifs
+       historiques déjà en base — ils ne seront simplement plus jamais créés
+       depuis le retrait du feed. Nouveaux types Lives ajoutés à côté. */
     var TYPES = {
       LIKE:      'like',
       FOLLOW:    'follow',
@@ -639,7 +642,18 @@
       ECHO:      'echo',
       BATTLE:    'battle',
       BURN:      'burn',
-      SYSTEM:    'system'
+      SYSTEM:    'system',
+      LIVE_STARTED:            'live_started',
+      LIVE_REMINDER:           'live_reminder',
+      SPEAK_INVITATION:        'speak_invitation',
+      SPEAK_REQUEST_ACCEPTED:  'speak_request_accepted',
+      SPEAK_REQUEST_DECLINED:  'speak_request_declined',
+      NEW_FOLLOWER_LIVE:       'new_follower_live',
+      LIVE_ENDING_SOON:        'live_ending_soon',
+      MODERATION_FLAG:         'moderation_flag',
+      MODERATION_ACTION_SELF:  'moderation_action_self',
+      BAN_NOTICE:              'ban_notice',
+      DISCONNECTED_RECONNECT:  'disconnected_reconnect'
     };
 
     /* Icônes et couleurs par type */
@@ -652,7 +666,18 @@
       echo:    { icon: '🔄',  color: '#f5a623', bg: 'rgba(245,166,35,0.12)'  },
       battle:  { icon: '⚡',  color: '#fbbf24', bg: 'rgba(245,166,35,0.12)'  },
       burn:    { icon: '🔥',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
-      system:  { icon: 'ℹ️', color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  }
+      system:  { icon: 'ℹ️', color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
+      live_started:           { icon: '🎙️', color: '#22d47a', bg: 'rgba(34,212,122,0.12)'  },
+      live_reminder:          { icon: '⏰',  color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
+      speak_invitation:       { icon: '🎤',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
+      speak_request_accepted: { icon: '✅',  color: '#22d47a', bg: 'rgba(34,212,122,0.12)'  },
+      speak_request_declined: { icon: '🔇',  color: '#8a8a9a', bg: 'rgba(138,138,154,0.12)' },
+      new_follower_live:      { icon: '👋',  color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
+      live_ending_soon:       { icon: '⌛',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
+      moderation_flag:        { icon: '🚩',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
+      moderation_action_self: { icon: '⚠️', color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
+      ban_notice:             { icon: '⛔',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
+      disconnected_reconnect: { icon: '🔌',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  }
     };
 
     /* Écouter les notifs en temps réel */
@@ -1459,14 +1484,10 @@
      13. BOTTOM NAV — Injection dans toutes les pages
   ────────────────────────────────────────────────────────── */
   SIS.renderBottomNav = function (activePage) {
-    /* FIX: la bottom nav comptait 6 icônes (profil, decouvrir, post, chat,
-       notifs, anon) et n'avait AUCUN accès au fil (Accueil) — impossible
-       d'atteindre le feed depuis la nav. Redesign à 5 icônes max (norme
-       Instagram/Facebook) :
-         Accueil · Découvrir · + (publier) · Chat · Profil
-       Relocalisés :
-         - Notifs  → cloche dans le topbar de chaque page (avec badge)
-         - Anonyme → bouton dédié dans Profil (section Messages anonymes) */
+    /* PIVOT LIVES + SUPPRESSION CHAT (confirmé explicitement) : SIS se
+       recentre sur 2 piliers — messages anonymes (via voir.html, inchangé)
+       et lives audio. Chat/DM retiré, Mes Lives récupère son propre slot
+       (plus besoin de le caser en onglet faute de place). */
     var items = [
       {
         id: 'feed',
@@ -1475,9 +1496,9 @@
         svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>'
       },
       {
-        id: 'decouvrir',
-        label: { fr: 'Découvrir', en: 'Explore', pt: 'Explorar' },
-        href: 'decouvrir.html',
+        id: 'explorer',
+        label: { fr: 'Explorer', en: 'Explore', pt: 'Explorar' },
+        href: 'feed.html?tab=explorer',
         svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>'
       },
       {
@@ -1488,10 +1509,10 @@
         svg: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
       },
       {
-        id: 'chat',
-        label: { fr: 'Chat', en: 'Chat', pt: 'Chat' },
-        href: 'chat.html',
-        svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+        id: 'mylives',
+        label: { fr: 'Mes Lives', en: 'My Lives', pt: 'Meus Lives' },
+        href: 'feed.html?tab=mylives',
+        svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>'
       },
       {
         id: 'profil',
@@ -1581,7 +1602,7 @@
         if (typeof SIS.onPostClick === 'function') {
           SIS.onPostClick();
         } else {
-          window.location.href = 'feed.html?compose=1';
+          window.location.href = 'feed.html?create=1';
         }
       });
     }
@@ -1846,6 +1867,414 @@
   })();
 
   /* ──────────────────────────────────────────────────────────
+     16bis. LIVES AUDIO — Cœur du pivot (remplace le Feed)
+     -----------------------------------------------------------
+     🔧 CONFIG REQUISE avant utilisation réelle : AGORA_APP_ID plus bas.
+     Le reste (join/publish/mute/leave) utilise l'API publique stable du
+     SDK Web Agora v4 — pas de fonction inventée. La génération de TOKEN
+     est en revanche volontairement absente ici : la faire côté client
+     serait une faille de sécurité (n'importe qui pourrait se fabriquer un
+     accès à n'importe quel salon). Ça doit passer par une Cloud Function
+     qui vérifie le ID token Firebase Auth avant d'émettre un token Agora.
+     Le paramètre `token: null` plus bas ne fonctionne qu'en mode "App ID
+     seul" (désactiver l'obligation de certificat côté console Agora, utile
+     pour développer/tester, PAS pour la prod).
+  ────────────────────────────────────────────────────────── */
+  SIS.live = (function () {
+
+    var AGORA_APP_ID = ''; /* 🔧 À REMPLIR — depuis console.agora.io */
+    var AGORA_SDK_URL = 'https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js';
+
+    var _client = null;
+    var _localAudioTrack = null;
+    var _remoteAudioTracks = {}; /* uid -> track, pour cleanup propre */
+    var _agoraLoadPromise = null;
+
+    function loadAgoraSDK() {
+      if (window.AgoraRTC) return Promise.resolve();
+      if (_agoraLoadPromise) return _agoraLoadPromise;
+      _agoraLoadPromise = new Promise(function (resolve, reject) {
+        var script = document.createElement('script');
+        script.src = AGORA_SDK_URL;
+        script.onload = function () { resolve(); };
+        script.onerror = function () { reject(new Error('SDK Agora non chargé (réseau ?)')); };
+        document.head.appendChild(script);
+      });
+      return _agoraLoadPromise;
+    }
+
+    function generateAccessCode() {
+      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* pas de 0/O/1/I ambigus */
+      var code = '';
+      for (var i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      return code;
+    }
+
+    /* ── FIRESTORE : cycle de vie du live ── */
+
+    function createLive(opts) {
+      var user = SIS.user;
+      if (!user) return Promise.reject(new Error('Non connecté'));
+      if (!SIS.security.rateLimit('create_live', 3)) return Promise.reject(new Error('Attends un peu avant de créer un autre live'));
+
+      var liveRef = SIS.db.collection('lives').doc();
+      var isScheduled = !!opts.scheduledFor;
+      var payload = {
+        hostUid:            user.uid,
+        hostPseudo:          opts.hostPseudo || '?',
+        hostPhotoUrl:        opts.hostPhotoUrl || null,
+        title:               (opts.title || '').trim(),
+        description:         (opts.description || '').trim(),
+        theme:               opts.theme || 'libre',
+        visibility:          opts.visibility === 'private' ? 'private' : 'public',
+        accessCode:          opts.visibility === 'private' ? generateAccessCode() : null,
+        status:              isScheduled ? 'scheduled' : 'live',
+        scheduledFor:        isScheduled ? firebase.firestore.Timestamp.fromDate(new Date(opts.scheduledFor)) : null,
+        startedAt:           isScheduled ? null : firebase.firestore.FieldValue.serverTimestamp(),
+        endedAt:             null,
+        agoraChannelName:    'sis_live_' + liveRef.id,
+        speakers:            isScheduled ? {} : makeHostEntry(user, opts.hostPseudo),
+        speakersCount:       isScheduled ? 0 : 1,
+        listenersCount:      0,
+        peakListenersCount:  0,
+        createdAt:           firebase.firestore.FieldValue.serverTimestamp()
+      };
+      return liveRef.set(payload).then(function () {
+        if (!isScheduled) notifyFollowersLiveStarted(user.uid, liveRef.id, payload);
+        return { id: liveRef.id, data: payload };
+      });
+    }
+
+    /* FEATURE : prévenir mes abonnés que je démarre un live (section 6.14 du
+       plan initial, proposition sensée). Fait côté client comme le reste de
+       ce module pour rester cohérent avec SIS.social — mais à grande échelle
+       ce type de fan-out mériterait une Cloud Function déclenchée sur la
+       création du doc (survit à un onglet fermé, pas besoin de lire toute la
+       liste d'abonnés depuis le client). */
+    function notifyFollowersLiveStarted(hostUid, liveId, liveData) {
+      SIS.db.collection('follows').where('targetUid', '==', hostUid).limit(500).get().then(function (snap) {
+        snap.forEach(function (doc) {
+          SIS.notifs.push(doc.data().followerUid, SIS.notifs.TYPES.LIVE_STARTED, {
+            liveId: liveId,
+            fromUid: hostUid,
+            fromPseudo: liveData.hostPseudo,
+            fromPhotoUrl: liveData.hostPhotoUrl || null
+          });
+        });
+      }).catch(function (e) { console.error('[SIS.live] notifyFollowersLiveStarted err', e); });
+    }
+
+    function makeHostEntry(user, pseudo) {
+      var entry = {};
+      entry[user.uid] = {
+        pseudo: pseudo || '?', isHost: true, revealed: false, muted: false,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp(), leftAt: null
+      };
+      return entry;
+    }
+
+    /* Écoute la liste des lives publics actifs/programmés.
+       FIX préventif (leçon retenue du bug d'index composite déjà rencontré
+       deux fois sur ce projet) : orderBy single-field uniquement, tout le
+       reste filtré côté client. Aucun index composite requis. */
+    function listenToLives(callback, onError) {
+      return SIS.db.collection('lives')
+        .orderBy('createdAt', 'desc')
+        .limit(50)
+        .onSnapshot(function (snap) {
+          var lives = [];
+          snap.forEach(function (doc) {
+            var d = doc.data();
+            if (d.visibility === 'private') return;
+            if (d.status !== 'live' && d.status !== 'scheduled') return;
+            lives.push({ id: doc.id, data: d });
+          });
+          callback(lives);
+        }, onError || function (e) { console.error('[SIS.live] listenToLives err', e); });
+    }
+
+    function getLive(liveId) {
+      return SIS.db.collection('lives').doc(liveId).get().then(function (doc) {
+        return doc.exists ? { id: doc.id, data: doc.data() } : null;
+      });
+    }
+
+    function joinAsListener(liveId) {
+      return SIS.db.collection('lives').doc(liveId).update({
+        listenersCount:     firebase.firestore.FieldValue.increment(1),
+        peakListenersCount: firebase.firestore.FieldValue.increment(0) /* recalé par recompute ci-dessous */
+      }).then(function () { return recomputePeak(liveId); });
+    }
+
+    function recomputePeak(liveId) {
+      var ref = SIS.db.collection('lives').doc(liveId);
+      return ref.get().then(function (doc) {
+        var d = doc.data();
+        if (d && (d.listenersCount || 0) > (d.peakListenersCount || 0)) {
+          return ref.update({ peakListenersCount: d.listenersCount });
+        }
+      });
+    }
+
+    function leaveAsListener(liveId) {
+      return SIS.db.collection('lives').doc(liveId).update({
+        listenersCount: firebase.firestore.FieldValue.increment(-1)
+      }).catch(function () {});
+    }
+
+    function requestToSpeak(liveId, pseudo) {
+      var user = SIS.user;
+      if (!user) return Promise.reject(new Error('Non connecté'));
+      if (!SIS.security.rateLimit('speak_request', 5)) return Promise.reject(new Error('Attends un peu avant de redemander'));
+      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(user.uid).set({
+        pseudo: pseudo || '?',
+        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    function cancelSpeakRequest(liveId) {
+      var user = SIS.user;
+      if (!user) return Promise.resolve();
+      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(user.uid).delete().catch(function () {});
+    }
+
+    /* orderBy single-field sur la file d'attente aussi */
+    function listenToQueue(liveId, callback) {
+      return SIS.db.collection('lives').doc(liveId).collection('queue')
+        .orderBy('requestedAt', 'asc')
+        .onSnapshot(function (snap) {
+          var queue = [];
+          snap.forEach(function (doc) { queue.push({ uid: doc.id, data: doc.data() }); });
+          callback(queue);
+        }, function (e) { console.error('[SIS.live] listenToQueue err', e); });
+    }
+
+    function acceptSpeaker(liveId, uid, pseudo) {
+      var liveRef = SIS.db.collection('lives').doc(liveId);
+      var updates = {};
+      updates['speakers.' + uid] = {
+        pseudo: pseudo || '?', isHost: false, revealed: false, muted: false,
+        joinedAt: firebase.firestore.FieldValue.serverTimestamp(), leftAt: null
+      };
+      updates.speakersCount = firebase.firestore.FieldValue.increment(1);
+      var batch = SIS.db.batch();
+      batch.update(liveRef, updates);
+      batch.delete(liveRef.collection('queue').doc(uid));
+      return batch.commit().then(function () {
+        SIS.notifs.push(uid, SIS.notifs.TYPES.SPEAK_REQUEST_ACCEPTED, { liveId: liveId });
+      });
+    }
+
+    function declineSpeaker(liveId, uid) {
+      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(uid).delete().then(function () {
+        SIS.notifs.push(uid, SIS.notifs.TYPES.SPEAK_REQUEST_DECLINED, { liveId: liveId });
+      });
+    }
+
+    function muteSpeakerFlag(liveId, uid, muted) {
+      var updates = {};
+      updates['speakers.' + uid + '.muted'] = muted;
+      return SIS.db.collection('lives').doc(liveId).update(updates);
+    }
+
+    function kickSpeaker(liveId, uid) {
+      var updates = {};
+      updates['speakers.' + uid] = firebase.firestore.FieldValue.delete();
+      return SIS.db.collection('lives').doc(liveId).update(updates).then(function () {
+        return SIS.db.collection('lives').doc(liveId).update({ speakersCount: firebase.firestore.FieldValue.increment(-1) });
+      });
+    }
+
+    function endLive(liveId) {
+      return SIS.db.collection('lives').doc(liveId).update({
+        status: 'ended',
+        endedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    function cancelScheduledLive(liveId) {
+      return SIS.db.collection('lives').doc(liveId).update({ status: 'cancelled' });
+    }
+
+    /* orderBy single-field sur le chat du live aussi, modération texte
+       réutilisée telle quelle (SIS.moderation, déjà en place) avant écriture */
+    function sendLiveChatMessage(liveId, uid, pseudo, text) {
+      if (!SIS.security.rateLimit('live_chat', 20)) return Promise.reject(new Error('Trop rapide, ralentis'));
+      return SIS.moderation.checkToxicity(text).then(function (result) {
+        return SIS.db.collection('lives').doc(liveId).collection('chat').add({
+          uid: uid, pseudo: pseudo || '?', text: text,
+          sentAt: firebase.firestore.FieldValue.serverTimestamp(),
+          moderationStatus: result.flagged ? 'flagged' : 'safe'
+        });
+      });
+    }
+
+    function listenToLiveChat(liveId, callback) {
+      return SIS.db.collection('lives').doc(liveId).collection('chat')
+        .orderBy('sentAt', 'desc')
+        .limit(50)
+        .onSnapshot(function (snap) {
+          var msgs = [];
+          snap.forEach(function (doc) {
+            var d = doc.data();
+            if (d.moderationStatus === 'removed') return;
+            msgs.push({ id: doc.id, data: d });
+          });
+          callback(msgs.reverse());
+        }, function (e) { console.error('[SIS.live] listenToLiveChat err', e); });
+    }
+
+    /* ── RTDB : présence live (qui parle, main levée) ──
+       Même pattern que SIS.authHelper.watchPresence, appliqué par salon
+       plutôt qu'à l'échelle du compte. */
+    function setLivePresence(liveId, role) {
+      var user = SIS.user;
+      if (!user || !SIS.rtdb) return;
+      var ref = SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid);
+      var connectedRef = SIS.rtdb.ref('.info/connected');
+      connectedRef.on('value', function (snap) {
+        if (snap.val() === true) {
+          ref.onDisconnect().remove().then(function () {
+            ref.set({
+              role: role, online: true, muted: false, speaking: false,
+              handRaised: false,
+              joinedAt: firebase.database.ServerValue.TIMESTAMP,
+              lastHeartbeat: firebase.database.ServerValue.TIMESTAMP
+            });
+          });
+        }
+      });
+    }
+
+    function clearLivePresence(liveId) {
+      var user = SIS.user;
+      if (!user || !SIS.rtdb) return Promise.resolve();
+      return SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid).remove().catch(function () {});
+    }
+
+    function watchLiveListenerCount(liveId, callback) {
+      if (!SIS.rtdb) { callback(0); return function () {}; }
+      var ref = SIS.rtdb.ref('live_presence/' + liveId);
+      var handler = function (snap) {
+        var count = 0;
+        snap.forEach(function () { count++; });
+        callback(count);
+      };
+      ref.on('value', handler);
+      return function () { ref.off('value', handler); };
+    }
+
+    function setHandRaised(liveId, raised) {
+      var user = SIS.user;
+      if (!user || !SIS.rtdb) return;
+      SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid + '/handRaised').set(raised);
+    }
+
+    /* ── AGORA : voix réelle (API publique stable du SDK Web v4) ── */
+
+    function initAgoraClient() {
+      return loadAgoraSDK().then(function () {
+        if (!_client) _client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
+        return _client;
+      });
+    }
+
+    /* role: 'host' (hôte/speaker, peut publier) | 'audience' (écoute seule).
+       token: null ne marche qu'en mode App ID seul côté console Agora
+       (dev/test) — cf. avertissement en tête de module pour la prod. */
+    function joinChannel(channelName, uid, role, token) {
+      if (!AGORA_APP_ID) return Promise.reject(new Error('AGORA_APP_ID non configuré — voir SIS.live en haut de core.js'));
+      return initAgoraClient().then(function (client) {
+        return client.setClientRole(role === 'listener' ? 'audience' : 'host').then(function () {
+          return client.join(AGORA_APP_ID, channelName, token || null, uid);
+        });
+      });
+    }
+
+    function publishMic() {
+      if (!_client) return Promise.reject(new Error('Pas de client Agora actif'));
+      return AgoraRTC.createMicrophoneAudioTrack().then(function (track) {
+        _localAudioTrack = track;
+        return _client.publish([track]);
+      });
+    }
+
+    function setMicMuted(muted) {
+      if (_localAudioTrack) _localAudioTrack.setEnabled(!muted);
+    }
+
+    function unpublishMic() {
+      if (!_localAudioTrack || !_client) return Promise.resolve();
+      return _client.unpublish([_localAudioTrack]).then(function () {
+        _localAudioTrack.close();
+        _localAudioTrack = null;
+      });
+    }
+
+    /* Écoute les speakers distants qui rejoignent/publient — branche l'audio
+       automatiquement (obligatoire pour qu'un auditeur entende quoi que ce
+       soit). À appeler une fois après join(). */
+    function onRemoteSpeakers(onUserPublished, onUserLeft) {
+      if (!_client) return;
+      _client.on('user-published', function (remoteUser, mediaType) {
+        _client.subscribe(remoteUser, mediaType).then(function () {
+          if (mediaType === 'audio') {
+            _remoteAudioTracks[remoteUser.uid] = remoteUser.audioTrack;
+            remoteUser.audioTrack.play();
+          }
+          if (typeof onUserPublished === 'function') onUserPublished(remoteUser);
+        });
+      });
+      _client.on('user-unpublished', function (remoteUser) {
+        delete _remoteAudioTracks[remoteUser.uid];
+      });
+      _client.on('user-left', function (remoteUser) {
+        delete _remoteAudioTracks[remoteUser.uid];
+        if (typeof onUserLeft === 'function') onUserLeft(remoteUser);
+      });
+    }
+
+    function leaveChannel() {
+      return unpublishMic().then(function () {
+        Object.keys(_remoteAudioTracks).forEach(function (uid) {
+          try { _remoteAudioTracks[uid].stop(); } catch (e) {}
+        });
+        _remoteAudioTracks = {};
+        return _client ? _client.leave() : Promise.resolve();
+      });
+    }
+
+    return {
+      createLive: createLive,
+      listenToLives: listenToLives,
+      getLive: getLive,
+      joinAsListener: joinAsListener,
+      leaveAsListener: leaveAsListener,
+      requestToSpeak: requestToSpeak,
+      cancelSpeakRequest: cancelSpeakRequest,
+      listenToQueue: listenToQueue,
+      acceptSpeaker: acceptSpeaker,
+      declineSpeaker: declineSpeaker,
+      muteSpeakerFlag: muteSpeakerFlag,
+      kickSpeaker: kickSpeaker,
+      endLive: endLive,
+      cancelScheduledLive: cancelScheduledLive,
+      sendLiveChatMessage: sendLiveChatMessage,
+      listenToLiveChat: listenToLiveChat,
+      setLivePresence: setLivePresence,
+      clearLivePresence: clearLivePresence,
+      watchLiveListenerCount: watchLiveListenerCount,
+      setHandRaised: setHandRaised,
+      joinChannel: joinChannel,
+      publishMic: publishMic,
+      setMicMuted: setMicMuted,
+      unpublishMic: unpublishMic,
+      onRemoteSpeakers: onRemoteSpeakers,
+      leaveChannel: leaveChannel
+    };
+  })();
+
+  /* ──────────────────────────────────────────────────────────
      16. POPUP PROFIL — Logique universelle
   ────────────────────────────────────────────────────────── */
   SIS.profilePopup = (function () {
@@ -1959,7 +2388,6 @@
           '</div>' +
           '<div class="pp-actions">' +
             (isMe ? '' :
-              '<button class="pp-btn-dm" id="pp-dm-btn">💬 Message</button>' +
               '<button class="pp-btn-follow ' + (opts.isFollowing ? 'active' : '') + '" id="pp-follow-btn2">' +
                 (opts.isFollowing ? '✓ ' + SIS.i18n.t('unfollow') : '➕ ' + SIS.i18n.t('follow')) +
               '</button>' +
@@ -1994,13 +2422,6 @@
         nameEl.style.cursor = 'pointer';
         nameEl.addEventListener('click', function () {
           window.location.href = 'profil.html?uid=' + opts.uid;
-        });
-      }
-
-      var dmBtn = overlay.querySelector('#pp-dm-btn');
-      if (dmBtn) {
-        dmBtn.addEventListener('click', function () {
-          window.location.href = 'chat.html?dm=' + encodeURIComponent(pseudo);
         });
       }
 

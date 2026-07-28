@@ -61,6 +61,23 @@
       font-size: 12px; color: var(--muted);
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
+
+    /* ── AJOUT : panel admin, relocalisé depuis chat.html (supprimé) ── */
+    .admin-panel {
+      display: flex; flex-direction: column; height: 100%; background: var(--bg);
+    }
+    .admin-content { flex: 1; overflow-y: auto; padding: 16px; scrollbar-width: thin; }
+    #admin-certif-list button {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; padding: 0;
+    }
+    .admin-stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    .admin-stat-card { background: var(--card); border-radius: var(--r-sm); border: 1px solid var(--border2); padding: 12px; text-align: center; }
+    .admin-stat-val {
+      font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: 22px;
+      background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .admin-stat-lbl { font-size: 10px; color: var(--muted); }
   </style>
 </head>
 <body data-page="profil">
@@ -98,7 +115,7 @@
   </div>
   <div style="display:none;gap:7px;align-items:flex-end" id="profil-visitor-actions">
     <button class="btn-ghost btn-sm" id="btn-follow-visitor">Suivre</button>
-    <a class="btn-primary btn-sm" id="btn-message-visitor" href="chat.html" style="text-decoration:none;text-align:center">Message</a>
+    <a class="btn-primary btn-sm" id="btn-message-visitor" href="#" target="_blank" style="text-decoration:none;text-align:center">Message anonyme</a>
   </div>
 </div>
 
@@ -317,15 +334,18 @@
          demandes de certification) n'était accessible qu'en ouvrant un
          salon de chat au hasard d'abord — aucun accès direct nulle part.
          Visible uniquement pour le compte admin (contrôlé en JS). -->
+    <!-- Le panel admin vit maintenant directement ici (relocalisé depuis
+         chat.html, supprimé avec le reste du chat). Visible uniquement pour
+         le compte admin (contrôlé en JS). -->
     <div class="settings-section" id="settings-admin-section" style="display:none">
       <div class="settings-label">Administration</div>
-      <a class="settings-row" id="btn-open-admin" href="chat.html?admin=1" style="text-decoration:none;color:var(--text)">
+      <button class="settings-row" id="btn-open-admin" style="width:100%;text-align:left;background:none;border:none;color:var(--text);cursor:pointer">
         <span style="display:flex;align-items:center;gap:8px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Panel admin · Certifications
         </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
+      </button>
     </div>
 
     <div class="settings-section">
@@ -361,6 +381,18 @@
       </button>
     </div>
     <div class="follow-list-items" id="follow-list-items"></div>
+  </div>
+</div>
+<div id="admin-panel-overlay" class="overlay-full" style="display:none">
+  <div class="admin-panel">
+    <div class="composer-header">
+      <button class="composer-close" id="admin-close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <h3 class="composer-title">Panel Admin SIS</h3>
+      <div></div>
+    </div>
+    <div class="admin-content" id="admin-content"></div>
   </div>
 </div>
 

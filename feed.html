@@ -25,10 +25,6 @@
 <div class="feed-topbar" id="feed-topbar">
   <div class="feed-logo">SIS</div>
   <div class="feed-topbar-actions">
-    <!-- Roulette -->
-    <button class="topbar-btn" id="btn-roulette" title="Roulette">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-    </button>
     <!-- Notifications (relocalisé depuis la bottom nav) -->
     <a class="topbar-btn" href="notifs.html" id="btn-notifs-bell" title="Notifications">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -59,30 +55,76 @@
 </div>
 
 <!-- ══════════════════════════════════════
-     FEED PRINCIPAL
+     ONGLETS LIVES — En direct / Explorer / Mes Lives
+     PIVOT : remplace les anciens onglets de posts.
 ══════════════════════════════════════ -->
-<div class="feed-content" id="feed-content">
-  <!-- Skeleton loaders -->
-  <div id="feed-skeletons">
-    <div class="post-skeleton"><div class="skeleton" style="width:38px;height:38px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:12px;width:60%"></div><div class="skeleton" style="height:10px;width:40%"></div></div></div>
-    <div class="skeleton" style="height:60px;border-radius:10px;margin:8px 12px"></div>
-    <div class="post-skeleton" style="margin-top:12px"><div class="skeleton" style="width:38px;height:38px;border-radius:50%"></div><div style="flex:1;display:flex;flex-direction:column;gap:5px"><div class="skeleton" style="height:12px;width:50%"></div><div class="skeleton" style="height:10px;width:35%"></div></div></div>
-    <div class="skeleton" style="height:80px;border-radius:10px;margin:8px 12px"></div>
+<div class="lives-tabs-wrap">
+  <div class="tabs-scroll" id="lives-tabs">
+    <div class="tab-item active" data-tab="live-now">En direct</div>
+    <div class="tab-item" data-tab="explorer">Explorer</div>
+    <div class="tab-item" data-tab="mylives">Mes Lives</div>
   </div>
-  <!-- Posts injectés par app.js -->
-  <div id="posts-list"></div>
-  <!-- Sentinel pour infinite scroll -->
-  <div id="feed-sentinel" style="height:20px"></div>
-  <!-- Loader pagination -->
-  <div id="feed-loader" class="feed-loader" style="display:none">
-    <div class="loader-spin"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     ONGLET : EN DIRECT (Accueil)
+══════════════════════════════════════ -->
+<div class="lives-tab-content active" id="tab-live-now">
+  <div id="live-now-skeletons">
+    <div class="live-card-skeleton"></div>
+    <div class="live-card-skeleton"></div>
   </div>
-  <!-- État vide -->
-  <div id="feed-empty" class="feed-empty" style="display:none">
-    <div class="feed-empty-icon">😶</div>
-    <div class="feed-empty-title">Rien ici pour l'instant</div>
-    <div class="feed-empty-sub">Sois le premier à publier !</div>
+  <div id="featured-live-wrap"></div>
+  <div class="lives-section-title" id="lives-now-title" style="display:none">En direct maintenant</div>
+  <div id="lives-now-list"></div>
+  <div class="lives-section-title" id="lives-scheduled-title" style="display:none">Programmés aujourd'hui</div>
+  <div id="lives-scheduled-list"></div>
+  <div id="lives-empty" class="feed-empty" style="display:none">
+    <div class="feed-empty-icon">🎙️</div>
+    <div class="feed-empty-title">Aucun live en ce moment</div>
+    <div class="feed-empty-sub">Programme le tien</div>
   </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     ONGLET : EXPLORER
+══════════════════════════════════════ -->
+<div class="lives-tab-content" id="tab-explorer" style="display:none">
+  <div class="explorer-search-bar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
+    <input type="text" id="explorer-search-input" placeholder="Chercher un salon, un thème…" class="explorer-search-input">
+  </div>
+  <div class="lives-section-title">Catégories</div>
+  <div class="explorer-categories" id="explorer-categories"></div>
+  <div class="lives-section-title">Tendance maintenant</div>
+  <div id="explorer-trending-list"></div>
+  <div class="lives-section-title">Nouveaux salons</div>
+  <div id="explorer-new-list"></div>
+  <div id="explorer-empty" class="feed-empty" style="display:none">
+    <div class="feed-empty-icon">🔍</div>
+    <div class="feed-empty-title">Rien trouvé</div>
+    <div class="feed-empty-sub">Essaie une autre catégorie</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     ONGLET : MES LIVES
+══════════════════════════════════════ -->
+<div class="lives-tab-content" id="tab-mylives" style="display:none">
+  <div class="lives-section-title">Programmés</div>
+  <div id="mylives-scheduled-list"></div>
+  <div id="mylives-scheduled-empty" class="feed-empty" style="display:none">
+    <div class="feed-empty-icon">📅</div>
+    <div class="feed-empty-title">Aucun live programmé</div>
+    <div class="feed-empty-sub">Prépare ton prochain rendez-vous</div>
+  </div>
+  <div class="lives-section-title">Invitations en attente</div>
+  <div id="mylives-invitations-list"></div>
+  <div class="lives-section-title-row">
+    <div class="lives-section-title" style="margin:0">Historique</div>
+    <a href="#" class="lives-history-link" id="btn-view-history">Voir tout ›</a>
+  </div>
+  <div id="mylives-history-preview"></div>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -90,184 +132,130 @@
 ══════════════════════════════════════ -->
 
 <!-- ══════════════════════════════════════
-     MODAL — NOUVEAU POST
+     BOTTOM SHEET — CRÉER UN LIVE
 ══════════════════════════════════════ -->
-<div id="post-composer-overlay" class="overlay-full" style="display:none">
-  <div class="post-composer" id="post-composer">
+<div id="create-live-overlay" class="overlay-backdrop" style="display:none">
+  <div class="create-live-sheet">
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">Créer un live</h3>
 
-    <!-- Header composer -->
-    <div class="composer-header">
-      <button class="composer-close" id="composer-close">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <h3 class="composer-title">Nouveau post</h3>
-      <button class="btn-primary composer-publish-btn" id="btn-publish" disabled>Publier</button>
+    <div class="input-group">
+      <label class="input-label">Titre</label>
+      <input type="text" id="live-title-input" class="input" placeholder="De quoi tu vas parler ?" maxlength="80">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Description (optionnel)</label>
+      <textarea id="live-desc-input" class="input" rows="2" placeholder="Contexte, règles, ce que tu veux…" maxlength="200"></textarea>
     </div>
 
-    <!-- Choix type de post -->
-    <div class="composer-types" id="composer-types">
-      <div class="ctype active" data-type="csdpm">
-        <span class="ctype-emoji">🤫</span>
-        <span>CSDPM</span>
-      </div>
-      <div class="ctype" data-type="poll">
-        <span class="ctype-emoji">📊</span>
-        <span>Sondage</span>
-      </div>
-      <div class="ctype" data-type="media">
-        <span class="ctype-emoji">📸</span>
-        <span>Media</span>
+    <label class="input-label">Thème</label>
+    <div class="live-theme-grid" id="live-theme-grid">
+      <div class="live-theme-opt active" data-theme="libre">🎤 Libre</div>
+      <div class="live-theme-opt" data-theme="confession">🤫 Confession</div>
+      <div class="live-theme-opt" data-theme="tech">💻 Tech</div>
+      <div class="live-theme-opt" data-theme="debat">🗣️ Débat</div>
+      <div class="live-theme-opt" data-theme="musique">🎵 Musique</div>
+    </div>
+
+    <div class="live-toggle-row">
+      <span class="composer-label">Visibilité</span>
+      <div class="live-toggle-opts" id="live-visibility-toggle">
+        <div class="live-toggle-opt active" data-vis="public">Public</div>
+        <div class="live-toggle-opt" data-vis="private">Privé</div>
       </div>
     </div>
 
-    <!-- Zone de saisie dynamique -->
-    <div class="composer-body" id="composer-body">
-
-      <!-- Identité -->
-      <div class="composer-identity" id="composer-identity">
-        <span class="composer-identity-label">Publier en tant que :</span>
-        <div class="identity-opts">
-          <div class="identity-opt active" data-identity="anon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-            Anonyme
-          </div>
-          <div class="identity-opt" data-identity="mystery">🎭 Mystère</div>
-          <div class="identity-opt" data-identity="name">👤 Mon nom</div>
-        </div>
+    <div class="live-toggle-row">
+      <span class="composer-label">Démarrage</span>
+      <div class="live-toggle-opts" id="live-timing-toggle">
+        <div class="live-toggle-opt active" data-timing="now">Maintenant</div>
+        <div class="live-toggle-opt" data-timing="scheduled">Programmer</div>
       </div>
+    </div>
 
-      <!-- Texte principal (CSDPM) -->
-      <div id="field-text" class="composer-field">
-        <textarea id="post-text" class="composer-textarea" placeholder="Dis ce que tu penses vraiment…" maxlength="500"></textarea>
-        <div class="composer-char-count"><span id="char-count">0</span>/500</div>
-      </div>
+    <div class="input-group" id="live-schedule-field" style="display:none">
+      <label class="input-label">Date et heure</label>
+      <input type="datetime-local" id="live-schedule-input" class="input">
+    </div>
 
-      <!-- Poll options -->
-      <div id="field-poll" class="composer-field" style="display:none">
-        <textarea id="poll-question" class="composer-textarea" placeholder="Ta question…" maxlength="200" rows="2"></textarea>
-        <div class="poll-options-composer" id="poll-options">
-          <input type="text" class="poll-opt-input" placeholder="Option 1" maxlength="80">
-          <input type="text" class="poll-opt-input" placeholder="Option 2" maxlength="80">
-        </div>
-        <button class="add-poll-opt" id="add-poll-opt">+ Ajouter une option (max 4)</button>
-      </div>
-
-      <!-- Media (image + GIF) -->
-      <div id="field-media" class="composer-field" style="display:none">
-        <textarea id="media-caption" class="composer-textarea" placeholder="Légende (optionnel)…" maxlength="200" rows="2"></textarea>
-        <div class="media-tabs">
-          <button class="media-tab active" data-media="image">📸 Photo</button>
-          <button class="media-tab" data-media="gif">GIF</button>
-        </div>
-        <!-- Zone image -->
-        <div id="media-image-zone">
-          <div class="upload-zone" id="media-upload-zone">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span class="upload-zone-text">Appuie pour choisir une photo</span>
-            <input type="file" id="media-file-input" accept="image/*" style="display:none">
-          </div>
-          <img id="media-preview" style="display:none;width:100%;border-radius:10px;margin-top:8px" alt="Aperçu">
-        </div>
-        <!-- Recherche GIF -->
-        <div id="media-gif-zone" style="display:none">
-          <div class="gif-search-bar">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>
-            <input type="text" id="gif-search-input" placeholder="Cherche un GIF…" class="gif-search-input">
-          </div>
-          <div id="gif-results" class="gif-results"></div>
-        </div>
-        <div class="upload-progress" id="media-upload-progress" style="display:none">
-          <div class="upload-progress-bar"><div class="upload-progress-fill" id="media-progress-fill"></div></div>
-          <span id="media-progress-label">Upload… 0%</span>
-        </div>
-      </div>
-
-    </div><!-- /composer-body -->
+    <button class="btn-primary" id="btn-create-live-confirm" style="margin-top:6px" disabled>Démarrer maintenant</button>
   </div>
 </div>
+<input type="file" id="live-cover-input" accept="image/*" style="display:none">
 
 <!-- ══════════════════════════════════════
-     MODAL — CONFESSION ROULETTE
+     SALLE DE LIVE (plein écran)
 ══════════════════════════════════════ -->
-<div id="roulette-overlay" class="overlay-full" style="display:none">
-  <div class="roulette-card" id="roulette-card">
-    <div class="roulette-header">
-      <h3>🎲 Roulette</h3>
-      <button class="composer-close" id="roulette-close">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+<div id="live-room-overlay" class="overlay-full" style="display:none">
+  <div class="live-room" id="live-room">
+
+    <div class="live-room-header">
+      <button class="composer-close" id="btn-leave-live">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      </button>
+      <div class="live-room-info">
+        <div class="live-room-title" id="live-room-title">Titre du live</div>
+        <div class="live-room-meta" id="live-room-meta"><span class="live-dot"></span>0 auditeurs</div>
+      </div>
+      <button class="composer-close" id="btn-live-menu" style="display:none">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
       </button>
     </div>
-    <div id="roulette-post-wrap" class="roulette-post-wrap">
-      <div class="skeleton" style="height:80px;border-radius:12px"></div>
-    </div>
-    <button class="btn-primary" id="btn-roulette-next" style="margin-top:14px">Suivant → 🎲</button>
-  </div>
-</div>
 
-<!-- ══════════════════════════════════════
-     BOTTOM SHEET — COMMENTAIRES
-══════════════════════════════════════ -->
-<div id="comments-overlay" class="overlay-backdrop" style="display:none">
-  <div class="comments-sheet">
-    <div class="sheet-handle"></div>
-    <div class="comments-header">
-      <h3 class="sheet-title">Commentaires</h3>
-      <button class="composer-close" id="comments-close">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <div class="live-speakers-grid" id="live-speakers-grid"></div>
+
+    <div class="live-chat-list" id="live-chat-list"></div>
+
+    <div class="live-error-banner" id="live-error-banner" style="display:none">Connexion audio interrompue, reconnexion…</div>
+
+    <div class="live-bottom-bar">
+      <div class="live-chat-input-wrap" id="live-chat-input-wrap">
+        <input type="text" id="live-chat-input" placeholder="Écrire…" maxlength="200">
+      </div>
+      <button class="live-control-btn" id="btn-live-chat-send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+      <button class="live-control-btn" id="btn-request-speak" title="Demander la parole">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+      </button>
+      <button class="live-control-btn danger" id="btn-mic-toggle" style="display:none">
+        <svg class="ic-mic-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+        <svg class="ic-mic-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+      </button>
+      <button class="live-control-btn" id="btn-live-queue" style="display:none" title="File d'attente">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="nav-badge" id="live-queue-badge" style="display:none">0</span>
       </button>
     </div>
-    <!-- Post original en aperçu -->
-    <div class="comment-post-preview" id="comment-post-preview"></div>
-    <!-- Liste commentaires -->
-    <div class="comments-list" id="comments-list">
-      <div class="skeleton" style="height:50px;border-radius:10px;margin-bottom:8px"></div>
-      <div class="skeleton" style="height:50px;border-radius:10px"></div>
-    </div>
-    <!-- Composer commentaire -->
-    <div class="comment-composer">
-      <div class="av-wrap" id="comment-my-av"></div>
-      <div class="comment-input-wrap">
-        <input type="text" id="comment-input" class="comment-input" placeholder="Ton commentaire…" maxlength="280">
-        <button class="comment-send" id="comment-send">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="white"/></svg>
-        </button>
-      </div>
-    </div>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════
-     BOTTOM SHEET — ECHO (repost)
+     BOTTOM SHEET — FILE DE DEMANDES (hôte)
 ══════════════════════════════════════ -->
-<div id="echo-overlay" class="overlay-backdrop" style="display:none">
-  <div class="echo-sheet">
+<div id="live-queue-overlay" class="overlay-backdrop" style="display:none">
+  <div class="live-queue-sheet">
     <div class="sheet-handle"></div>
-    <h3 class="sheet-title">Echo</h3>
-    <p class="sheet-sub">Reposte avec ton propre commentaire</p>
-    <div class="echo-preview" id="echo-preview"></div>
-    <div class="input-group" style="margin-top:12px">
-      <textarea id="echo-text" class="input" rows="2" placeholder="Ton commentaire (optionnel, 140 max)" maxlength="140"></textarea>
-    </div>
-    <div class="composer-identity" style="margin-bottom:14px">
-      <span class="composer-identity-label">En tant que :</span>
-      <div class="identity-opts">
-        <div class="identity-opt active" data-identity="anon">Anonyme</div>
-        <div class="identity-opt" data-identity="mystery">🎭 Mystère</div>
-        <div class="identity-opt" data-identity="name">👤 Mon nom</div>
-      </div>
-    </div>
-    <button class="btn-primary" id="btn-echo-confirm">Echo 🔄</button>
-    <button class="btn-ghost w-full" id="btn-echo-cancel" style="margin-top:8px">Annuler</button>
+    <h3 class="sheet-title">Demandes de parole</h3>
+    <div id="live-queue-list"></div>
+    <div id="live-queue-empty" style="text-align:center;padding:24px;color:var(--muted);font-size:13px;display:none">Personne en attente pour l'instant.</div>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════
-     BOTTOM SHEET — OPTIONS POST (3 points)
+     BOTTOM SHEET — MENU HÔTE (fin du live etc.)
 ══════════════════════════════════════ -->
-<div id="post-options-overlay" class="overlay-backdrop" style="display:none">
-  <div class="post-options-sheet">
+<div id="live-host-menu-overlay" class="overlay-backdrop" style="display:none">
+  <div class="live-host-menu-sheet">
     <div class="sheet-handle"></div>
-    <div id="post-options-list"></div>
+    <button class="settings-row" id="btn-open-live-queue-2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+      Demandes de parole
+    </button>
+    <button class="settings-row danger" id="btn-end-live">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      Terminer le live
+    </button>
   </div>
 </div>
 
