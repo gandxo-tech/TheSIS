@@ -1882,7 +1882,7 @@
   ────────────────────────────────────────────────────────── */
   SIS.live = (function () {
 
-    var AGORA_APP_ID = ''; /* 🔧 À REMPLIR — depuis console.agora.io */
+    var AGORA_APP_ID = '64a6d3b2b6324eaa9991690bf361e4e3'; /* 🔧 À REMPLIR — depuis console.agora.io */
     var AGORA_SDK_URL = 'https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js';
 
     var _client = null;
