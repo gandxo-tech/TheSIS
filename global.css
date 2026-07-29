@@ -704,6 +704,32 @@ textarea.input {
   to   { transform: translateY(0); }
 }
 
+/* FIX CRITIQUE : .overlay-full n'était défini QUE dans chat.css, supprimé
+   avec le reste du chat — la Salle de Live (qui utilise cette classe)
+   s'affichait donc sans AUCUN style. .overlay-backdrop, lui, était dupliqué
+   à l'identique dans feed.css/auth.css/chat.css. Les deux centralisés ici,
+   avec les doublons retirés des fichiers par page. */
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: var(--z-sheet);
+  animation: fadeIn 0.2s ease both;
+}
+
+.overlay-full {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: var(--z-sheet);
+  max-width: 480px;
+  margin: 0 auto;
+  animation: fadeIn 0.2s ease both;
+}
+
 .sheet-handle {
   width: 36px;
   height: 4px;
@@ -831,20 +857,6 @@ textarea.input {
   gap: 8px;
   padding: 0 var(--sp-4) var(--sp-4);
 }
-
-.pp-btn-dm {
-  flex: 1;
-  padding: 11px;
-  border-radius: var(--r-sm);
-  background: var(--grad);
-  border: none;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: opacity var(--t-base);
-}
-.pp-btn-dm:active { opacity: 0.85; }
 
 .pp-btn-follow {
   flex: 1;
@@ -976,80 +988,17 @@ textarea.input {
 }
 .hashtag:hover { opacity: 0.8; }
 
-/* ─────────────────────────────────────────
-   13. BADGES DE TYPE DE POST
-───────────────────────────────────────── */
-.post-type {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  padding: 3px 9px;
-  border-radius: var(--r-full);
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.type-confession { background: rgba(240,79,90,0.12);   color: #f87171; }
-.type-csdpm      { background: rgba(34,212,122,0.12);  color: #4ade80; }
-.type-whisper    { background: rgba(139,92,246,0.12);  color: #a78bfa; }
-.type-battle     { background: rgba(245,166,35,0.12);  color: #fbbf24; }
-.type-burn       { background: rgba(240,79,90,0.18);   color: #f04f5a; }
-.type-media      { background: rgba(91,142,244,0.12);  color: #7eb3ff; }
-.type-poll       { background: rgba(6,182,212,0.12);   color: #22d3ee; }
-.type-thread     { background: rgba(245,158,11,0.12);  color: #f59e0b; }
-
-/* ─────────────────────────────────────────
-   14. REACTIONS
-───────────────────────────────────────── */
-.reaction-bar {
-  display: flex;
-  gap: 4px;
-  padding: 0 12px 10px;
-  flex-wrap: wrap;
-}
-
-.reaction-pill {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 4px 9px;
-  border-radius: var(--r-full);
-  background: var(--card2);
-  border: 1px solid var(--border2);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all var(--t-base);
-  user-select: none;
-}
-
-.reaction-pill:active { transform: scale(0.93); }
-
-.reaction-pill.active {
-  background: rgba(91,142,244,0.12);
-  border-color: var(--blue);
-}
-
-.reaction-pill span {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text2);
-}
-
-/* Reaction Storm container */
-.reaction-storm {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: var(--z-toast);
-  overflow: hidden;
-}
+/* FIX : badges de type de post + réactions supprimés d'ici — les posts
+   n'existent plus (retirés lors du pivot Lives). Ces règles entraient en
+   conflit avec la version (à jour, scopée aux 3 types restants) définie
+   dans feed.css ; les garder aux deux endroits avec des couleurs
+   différentes était une vraie source d'incohérence visuelle. */
 
 /* ─────────────────────────────────────────
    15. STORY RING
 ───────────────────────────────────────── */
 .story-ring {
-  padding: 2.5px;
+  padding: 3px;
   border-radius: 50%;
   background: var(--grad);
   display: inline-flex;
@@ -1367,38 +1316,9 @@ textarea.input {
 
 .interest-chip:active { transform: scale(0.95); }
 
-/* ─────────────────────────────────────────
-   23. MOOD FILTERS
-───────────────────────────────────────── */
-.mood-bar {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  flex-shrink: 0;
-}
-.mood-bar::-webkit-scrollbar { display: none; }
-
-.mood-chip {
-  flex-shrink: 0;
-  padding: 5px 13px;
-  background: var(--card);
-  border-radius: var(--r-full);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text2);
-  border: 1px solid var(--border2);
-  cursor: pointer;
-  transition: all var(--t-base);
-  white-space: nowrap;
-}
-
-.mood-chip.active {
-  background: rgba(91,142,244,0.12);
-  border-color: var(--blue);
-  color: var(--blue);
-}
+/* FIX : filtres "mood/Pacte" retirés d'ici — fonctionnalité supprimée du
+   produit, confirmée morte via les commentaires du code à l'époque, mais
+   invisible depuis global.css jusqu'à présent. */
 
 /* ─────────────────────────────────────────
    24. LIVE INDICATOR
@@ -1524,8 +1444,8 @@ textarea.input {
 /* Fix padding-bottom pour toutes les pages */
 body { padding-bottom: calc(var(--nav-h) + 4px); }
 body[data-page="auth"]  { padding-bottom: 0 !important; }
-body[data-page="chat"]  { padding-bottom: 0 !important; } /* chat gère lui-même */
 
-/* Forcer feed content à ne pas être caché derrière le nav */
-.feed-content { padding-bottom: calc(var(--nav-h) + 16px) !important; }
+/* Forcer le contenu des onglets Lives à ne pas être caché derrière le nav
+   (remplace .feed-content, renommé lors du pivot Lives) */
+.lives-tab-content { padding-bottom: calc(var(--nav-h) + 16px) !important; }
 

@@ -110,67 +110,15 @@ body[data-page="feed"] {
   border-color: rgba(34,197,94,0.32);
 }
 
-/* CORPS DU POST — la partie la plus importante */
-.post-body {
-  padding: 2px 14px 14px !important;
-  font-size: 17px !important;
-  line-height: 1.75 !important;
-  color: var(--text) !important;
-  word-break: break-word !important;
-}
-
-/* REACTIONS — plus grosses */
-.reaction-bar {
-  padding: 0 14px 10px !important;
-  gap: 6px !important;
-}
-
-.reaction-btn {
-  padding: 7px 13px !important;
-  font-size: 15px !important;
-  border-radius: 999px !important;
-  gap: 5px !important;
-}
-
-.reaction-count {
-  font-size: 12px !important;
-  font-weight: 600 !important;
-}
-
-/* BARRE D'ACTIONS — Facebook style */
-.post-actions {
-  border-top: 1px solid var(--border2) !important;
-  min-height: 48px !important;
-  padding: 0 !important;
-}
-
-.post-action {
-  font-size: 13px !important;
-  padding: 12px 6px !important;
-  gap: 6px !important;
-  font-weight: 500 !important;
-}
-
-.post-action svg { 
-  width: 18px !important; 
-  height: 18px !important;
-}
-
-/* POLL */
-.poll-opts { padding: 0 14px 14px !important; }
-.poll-opt { 
-  padding: 13px 14px !important; 
-  font-size: 15px !important; 
-  border-radius: 10px !important;
-}
-
-/* STORIES — plus grandes */
-.stories-strip { padding: 10px 12px 8px !important; }
-.story-ring { padding: 3px !important; }
-.story-av .av-sm { 
-  width: 50px !important; 
-  height: 50px !important; 
-}
+/* FIX : bloc entier de retouches !important pour des éléments de post
+   (corps de post, barre de réactions, barre d'actions, options de poll)
+   qui n'existent plus depuis le pivot Lives — repéré en creusant les
+   conflits avec global.css, manqué lors du 1er nettoyage car positionné
+   séparément du bloc principal POST CARD supprimé à ce moment-là.
+   Les 3 retouches Stories qui étaient ici sont retirées aussi : la
+   1ère dupliquait exactement le canonique plus bas, la 2e est maintenant
+   fixée à la source dans global.css, et .story-av .av-sm ne correspondait
+   à aucun élément réel généré par app.js (vérifié). */
 
 /* Accent gauche par type — identité visuelle cohérente sur toute la carte,
    pas juste le badge (repris du principe qui existait pour burn/whisper,
@@ -294,15 +242,15 @@ body[data-page="feed"] {
 }
 
 .story-av {
-  width: 42px;
-  height: 42px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   object-fit: cover;
   display: block;
 }
 
 .story-label {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--text2);
   max-width: 52px;
   text-align: center;
@@ -429,10 +377,14 @@ body[data-page="feed"] {
 }
 .live-card:active { border-color: var(--blue); }
 .live-card-avatar-wrap { position: relative; flex-shrink: 0; }
+@keyframes liveRedPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(240,79,90,0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(240,79,90,0); }
+}
 .live-card-pulse-ring {
   position: absolute; inset: -3px; border-radius: 50%;
   border: 2px solid #F04F5A;
-  animation: liveDotPulse 2s ease-in-out infinite;
+  animation: liveRedPulse 2s ease-in-out infinite;
 }
 .live-card-info { flex: 1; min-width: 0; }
 .live-card-title { font-weight: 700; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -528,7 +480,7 @@ body[data-page="feed"] {
 }
 .live-speaker-ring.speaking {
   border-color: #22d47a;
-  animation: liveDotPulse 1.4s ease-in-out infinite;
+  animation: livePulse 1.4s ease-in-out infinite;
 }
 .live-speaker-ring.host-ring { border-color: #F59E0B; }
 .live-speaker-mute-badge {
@@ -606,12 +558,8 @@ body[data-page="feed"] {
 .live-queue-actions button[data-act="accept"] { color: #22d47a; }
 .live-queue-actions button[data-act="decline"] { color: var(--red); }
 
-/* ─── LIVE DOT réutilisé (déjà défini pour la présence chat) ─── */
-.live-dot { width: 6px; height: 6px; border-radius: 50%; background: #22d47a; display: inline-block; flex-shrink: 0; animation: liveDotPulse 2s ease-in-out infinite; }
-@keyframes liveDotPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34,212,122,0.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(34,212,122,0); }
-}
+/* .live-dot est déjà défini dans global.css (partagé, chargé partout) —
+   pas besoin d'une 2e copie ici, c'était une vraie duplication CSS. */
 
 /* ─── STORY VIEWER ─── */
 .story-viewer {
@@ -810,17 +758,8 @@ body[data-page="feed"] {
   margin: 4px 0;
 }
 
-/* ─── OVERLAY BACKDROP ─── */
-.overlay-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: var(--z-sheet);
-  animation: fadeIn 0.2s ease both;
-}
+/* .overlay-backdrop est maintenant centralisé dans global.css (était
+   dupliqué à l'identique dans plusieurs fichiers CSS de page) */
 
 /* ─── RESPONSIVE ─── */
 @media (max-width: 360px) {
@@ -899,12 +838,8 @@ body[data-page="feed"] {
    Instagram/Facebook). On garde un plafond, juste un peu réduit. */
 .post-media-img { max-height: 320px !important; }
 
-/* Stories — plus grandes */
-.story-av { width: 52px !important; height: 52px !important; }
-.story-ring { padding: 3px !important; }
-.story-label { font-size: 10px !important; }
-
-/* Tabs — plus lisibles */
+/* Stories : tailles fixées directement à la source plus haut, plus besoin
+   de retouches !important ici */
 
 /* Bottom nav — plus grand sur Android */
 .bnav { height: 68px !important; padding: 0 4px !important; }

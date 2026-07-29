@@ -893,16 +893,7 @@ body[data-page="auth"] {
 /* ─────────────────────────────────────────
    CGU OVERLAY
 ───────────────────────────────────────── */
-.overlay-backdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--overlay);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: var(--z-sheet);
-  animation: fadeIn 0.2s ease both;
-}
+/* .overlay-backdrop centralisé dans global.css */
 
 .cgu-sheet {
   width: 100%;
