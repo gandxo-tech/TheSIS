@@ -50,6 +50,7 @@
       thumb:    'f_auto,q_auto:low,w_120,h_120,c_fill',
       story:    'f_auto,q_auto:good,w_480,c_limit',
       cover:    'f_auto,q_auto:good,w_480,h_160,c_fill',
+      live_cover: 'f_auto,q_auto:good,w_720,h_480,c_fill',
       original: 'f_auto,q_auto'
     },
 
@@ -490,6 +491,7 @@
           post:    { maxWidth: 1080, maxHeight: 1080, quality: 0.82 },
           story:   { maxWidth: 720,  maxHeight: 1280, quality: 0.80 },
           cover:   { maxWidth: 960,  maxHeight: 320,  quality: 0.80 },
+          live_cover: { maxWidth: 960, maxHeight: 640, quality: 0.82 },
           certif:  { maxWidth: 1200, maxHeight: 1600, quality: 0.88 }
         };
 
@@ -632,7 +634,7 @@
     /* Types de notif. Les anciens types liés aux posts (like/comment/echo/
        battle/burn) restent définis pour l'affichage correct des notifs
        historiques déjà en base — ils ne seront simplement plus jamais créés
-       depuis le retrait du feed. Nouveaux types Lives ajoutés à côté. */
+       depuis le retrait du feed. */
     var TYPES = {
       LIKE:      'like',
       FOLLOW:    'follow',
@@ -642,18 +644,7 @@
       ECHO:      'echo',
       BATTLE:    'battle',
       BURN:      'burn',
-      SYSTEM:    'system',
-      LIVE_STARTED:            'live_started',
-      LIVE_REMINDER:           'live_reminder',
-      SPEAK_INVITATION:        'speak_invitation',
-      SPEAK_REQUEST_ACCEPTED:  'speak_request_accepted',
-      SPEAK_REQUEST_DECLINED:  'speak_request_declined',
-      NEW_FOLLOWER_LIVE:       'new_follower_live',
-      LIVE_ENDING_SOON:        'live_ending_soon',
-      MODERATION_FLAG:         'moderation_flag',
-      MODERATION_ACTION_SELF:  'moderation_action_self',
-      BAN_NOTICE:              'ban_notice',
-      DISCONNECTED_RECONNECT:  'disconnected_reconnect'
+      SYSTEM:    'system'
     };
 
     /* Icônes et couleurs par type */
@@ -666,18 +657,7 @@
       echo:    { icon: '🔄',  color: '#f5a623', bg: 'rgba(245,166,35,0.12)'  },
       battle:  { icon: '⚡',  color: '#fbbf24', bg: 'rgba(245,166,35,0.12)'  },
       burn:    { icon: '🔥',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
-      system:  { icon: 'ℹ️', color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
-      live_started:           { icon: '🎙️', color: '#22d47a', bg: 'rgba(34,212,122,0.12)'  },
-      live_reminder:          { icon: '⏰',  color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
-      speak_invitation:       { icon: '🎤',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
-      speak_request_accepted: { icon: '✅',  color: '#22d47a', bg: 'rgba(34,212,122,0.12)'  },
-      speak_request_declined: { icon: '🔇',  color: '#8a8a9a', bg: 'rgba(138,138,154,0.12)' },
-      new_follower_live:      { icon: '👋',  color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  },
-      live_ending_soon:       { icon: '⌛',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)'  },
-      moderation_flag:        { icon: '🚩',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
-      moderation_action_self: { icon: '⚠️', color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
-      ban_notice:             { icon: '⛔',  color: '#f04f5a', bg: 'rgba(240,79,90,0.12)'   },
-      disconnected_reconnect: { icon: '🔌',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  }
+      system:  { icon: 'ℹ️', color: '#5B8EF4', bg: 'rgba(91,142,244,0.12)'  }
     };
 
     /* Écouter les notifs en temps réel */
@@ -1484,10 +1464,10 @@
      13. BOTTOM NAV — Injection dans toutes les pages
   ────────────────────────────────────────────────────────── */
   SIS.renderBottomNav = function (activePage) {
-    /* PIVOT LIVES + SUPPRESSION CHAT (confirmé explicitement) : SIS se
-       recentre sur 2 piliers — messages anonymes (via voir.html, inchangé)
-       et lives audio. Chat/DM retiré, Mes Lives récupère son propre slot
-       (plus besoin de le caser en onglet faute de place). */
+    /* PIVOT MESSAGES ANONYMES SEUL (confirmé explicitement) : Lives retiré
+       entièrement, SIS revient à un seul pilier. Nav réduite à l'essentiel
+       — Explorer/Mes Lives n'ont plus de raison d'être. Le + central,
+       n'ayant plus de live/post à créer, ouvre l'ajout de story. */
     var items = [
       {
         id: 'feed',
@@ -1496,23 +1476,11 @@
         svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>'
       },
       {
-        id: 'explorer',
-        label: { fr: 'Explorer', en: 'Explore', pt: 'Explorar' },
-        href: 'feed.html?tab=explorer',
-        svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="22" y2="22"/></svg>'
-      },
-      {
         id: 'post',
         isPost: true,
         label: { fr: '', en: '', pt: '' },
         href: '#',
         svg: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>'
-      },
-      {
-        id: 'mylives',
-        label: { fr: 'Mes Lives', en: 'My Lives', pt: 'Meus Lives' },
-        href: 'feed.html?tab=mylives',
-        svg: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>'
       },
       {
         id: 'profil',
@@ -1602,7 +1570,7 @@
         if (typeof SIS.onPostClick === 'function') {
           SIS.onPostClick();
         } else {
-          window.location.href = 'feed.html?create=1';
+          window.location.href = 'feed.html?story=1';
         }
       });
     }
@@ -1612,32 +1580,29 @@
      14. THEME MANAGER (clair/sombre)
   ────────────────────────────────────────────────────────── */
   SIS.theme = (function () {
+    /* FIX : SIS passe en dark-only. L'app détectait la préférence système
+       et basculait en clair si le téléphone était en mode clair — plusieurs
+       composants Lives n'ont jamais été pensés que pour le sombre (couleurs
+       en dur), d'où un rendu cassé en mode clair. Plutôt que de corriger
+       chaque composant pour les deux thèmes, on aligne sur l'esthétique
+       voulue (sombre, façon Stitch/Stripe/Vercel) et on retire le choix.
+       apply()/toggle() sont gardés en no-op pour ne rien casser côté
+       appelant (profil, settings) plutôt que de devoir retirer tous les
+       points d'appel. */
     var current = 'dark';
 
     function apply(theme) {
-      current = theme;
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('sis_theme', theme);
+      current = 'dark';
+      document.documentElement.setAttribute('data-theme', 'dark');
     }
 
     function load() {
-      var saved = localStorage.getItem('sis_theme');
-      /* Respecter la préférence système si pas de préférence sauvée */
-      if (!saved) {
-        saved = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-      }
-      apply(saved);
-      return saved;
+      apply('dark');
+      return 'dark';
     }
 
     function toggle() {
-      apply(current === 'dark' ? 'light' : 'dark');
-      /* Sauvegarder dans profil si connecté */
-      if (SIS.user) {
-        SIS.db.collection('users').doc(SIS.user.uid)
-          .update({ theme: current })
-          .catch(function () {});
-      }
+      /* no-op assumé : plus de mode clair */
     }
 
     return { apply: apply, load: load, toggle: toggle, get: function () { return current; } };
@@ -1802,477 +1767,9 @@
   })();
 
   /* ──────────────────────────────────────────────────────────
-     15B. GRAPHE SOCIAL — Suivre / Ne plus suivre
-     BUGFIX: cette logique n'existait nulle part dans le fichier ;
-     les boutons "Suivre" du popup profil étaient donc inertes.
-  ────────────────────────────────────────────────────────── */
-  SIS.social = (function () {
-
-    function relId(followerUid, targetUid) {
-      return followerUid + '_' + targetUid;
-    }
-
-    /* Vérifie si l'utilisateur connecté suit déjà targetUid */
-    function isFollowing(targetUid) {
-      if (!SIS.user || !targetUid) return Promise.resolve(false);
-      return SIS.db.collection('follows').doc(relId(SIS.user.uid, targetUid)).get()
-        .then(function (doc) { return doc.exists; });
-    }
-
-    /* Bascule suivre/ne plus suivre + tient les compteurs followers/following à jour */
-    function toggleFollow(targetUid, isCurrentlyFollowing) {
-      if (!SIS.user) return Promise.reject(new Error('Non connecté'));
-      if (!targetUid || targetUid === SIS.user.uid) {
-        return Promise.reject(new Error('Action invalide'));
-      }
-      if (!SIS.security.rateLimit('follow', 30)) {
-        return Promise.reject(new Error('Trop d\'actions, réessaie un peu plus tard'));
-      }
-
-      var followerUid = SIS.user.uid;
-      var relRef    = SIS.db.collection('follows').doc(relId(followerUid, targetUid));
-      var meRef     = SIS.db.collection('users').doc(followerUid);
-      var targetRef = SIS.db.collection('users').doc(targetUid);
-      var batch     = SIS.db.batch();
-
-      if (isCurrentlyFollowing) {
-        batch.delete(relRef);
-        batch.update(meRef,     { following: firebase.firestore.FieldValue.increment(-1) });
-        batch.update(targetRef, { followers: firebase.firestore.FieldValue.increment(-1) });
-      } else {
-        batch.set(relRef, {
-          followerUid: followerUid,
-          targetUid:   targetUid,
-          createdAt:   firebase.firestore.FieldValue.serverTimestamp()
-        });
-        batch.update(meRef,     { following: firebase.firestore.FieldValue.increment(1) });
-        batch.update(targetRef, { followers: firebase.firestore.FieldValue.increment(1) });
-      }
-
-      return batch.commit().then(function () {
-        if (!isCurrentlyFollowing) {
-          SIS.authHelper.getProfile(followerUid).then(function (me) {
-            SIS.notifs.push(targetUid, SIS.notifs.TYPES.FOLLOW, {
-              fromUid:      followerUid,
-              fromPseudo:   me ? me.pseudo : null,
-              fromPhotoUrl: me ? me.photoUrl || null : null
-            });
-          });
-        }
-        return !isCurrentlyFollowing; /* nouvel état isFollowing */
-      });
-    }
-
-    return { isFollowing: isFollowing, toggleFollow: toggleFollow };
-  })();
-
   /* ──────────────────────────────────────────────────────────
-     16bis. LIVES AUDIO — Cœur du pivot (remplace le Feed)
-     -----------------------------------------------------------
-     🔧 CONFIG REQUISE avant utilisation réelle : AGORA_APP_ID plus bas.
-     Le reste (join/publish/mute/leave) utilise l'API publique stable du
-     SDK Web Agora v4 — pas de fonction inventée. La génération de TOKEN
-     est en revanche volontairement absente ici : la faire côté client
-     serait une faille de sécurité (n'importe qui pourrait se fabriquer un
-     accès à n'importe quel salon). Ça doit passer par une Cloud Function
-     qui vérifie le ID token Firebase Auth avant d'émettre un token Agora.
-     Le paramètre `token: null` plus bas ne fonctionne qu'en mode "App ID
-     seul" (désactiver l'obligation de certificat côté console Agora, utile
-     pour développer/tester, PAS pour la prod).
+     15B. GRAPHE SOCIAL — retiré du produit (suivi/abonnés supprimés)
   ────────────────────────────────────────────────────────── */
-  SIS.live = (function () {
-
-    var AGORA_APP_ID = '64a6d3b2b6324eaa9991690bf361e4e3'; /* 🔧 À REMPLIR — depuis console.agora.io */
-    var AGORA_SDK_URL = 'https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js';
-
-    var _client = null;
-    var _localAudioTrack = null;
-    var _remoteAudioTracks = {}; /* uid -> track, pour cleanup propre */
-    var _agoraLoadPromise = null;
-
-    function loadAgoraSDK() {
-      if (window.AgoraRTC) return Promise.resolve();
-      if (_agoraLoadPromise) return _agoraLoadPromise;
-      _agoraLoadPromise = new Promise(function (resolve, reject) {
-        var script = document.createElement('script');
-        script.src = AGORA_SDK_URL;
-        script.onload = function () { resolve(); };
-        script.onerror = function () { reject(new Error('SDK Agora non chargé (réseau ?)')); };
-        document.head.appendChild(script);
-      });
-      return _agoraLoadPromise;
-    }
-
-    function generateAccessCode() {
-      var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; /* pas de 0/O/1/I ambigus */
-      var code = '';
-      for (var i = 0; i < 6; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-      return code;
-    }
-
-    /* ── FIRESTORE : cycle de vie du live ── */
-
-    function createLive(opts) {
-      var user = SIS.user;
-      if (!user) return Promise.reject(new Error('Non connecté'));
-      if (!SIS.security.rateLimit('create_live', 3)) return Promise.reject(new Error('Attends un peu avant de créer un autre live'));
-
-      var liveRef = SIS.db.collection('lives').doc();
-      var isScheduled = !!opts.scheduledFor;
-      var payload = {
-        hostUid:            user.uid,
-        hostPseudo:          opts.hostPseudo || '?',
-        hostPhotoUrl:        opts.hostPhotoUrl || null,
-        title:               (opts.title || '').trim(),
-        description:         (opts.description || '').trim(),
-        theme:               opts.theme || 'libre',
-        visibility:          opts.visibility === 'private' ? 'private' : 'public',
-        accessCode:          opts.visibility === 'private' ? generateAccessCode() : null,
-        status:              isScheduled ? 'scheduled' : 'live',
-        scheduledFor:        isScheduled ? firebase.firestore.Timestamp.fromDate(new Date(opts.scheduledFor)) : null,
-        startedAt:           isScheduled ? null : firebase.firestore.FieldValue.serverTimestamp(),
-        endedAt:             null,
-        agoraChannelName:    'sis_live_' + liveRef.id,
-        speakers:            isScheduled ? {} : makeHostEntry(user, opts.hostPseudo),
-        speakersCount:       isScheduled ? 0 : 1,
-        listenersCount:      0,
-        peakListenersCount:  0,
-        createdAt:           firebase.firestore.FieldValue.serverTimestamp()
-      };
-      return liveRef.set(payload).then(function () {
-        if (!isScheduled) notifyFollowersLiveStarted(user.uid, liveRef.id, payload);
-        return { id: liveRef.id, data: payload };
-      });
-    }
-
-    /* FEATURE : prévenir mes abonnés que je démarre un live (section 6.14 du
-       plan initial, proposition sensée). Fait côté client comme le reste de
-       ce module pour rester cohérent avec SIS.social — mais à grande échelle
-       ce type de fan-out mériterait une Cloud Function déclenchée sur la
-       création du doc (survit à un onglet fermé, pas besoin de lire toute la
-       liste d'abonnés depuis le client). */
-    function notifyFollowersLiveStarted(hostUid, liveId, liveData) {
-      SIS.db.collection('follows').where('targetUid', '==', hostUid).limit(500).get().then(function (snap) {
-        snap.forEach(function (doc) {
-          SIS.notifs.push(doc.data().followerUid, SIS.notifs.TYPES.LIVE_STARTED, {
-            liveId: liveId,
-            fromUid: hostUid,
-            fromPseudo: liveData.hostPseudo,
-            fromPhotoUrl: liveData.hostPhotoUrl || null
-          });
-        });
-      }).catch(function (e) { console.error('[SIS.live] notifyFollowersLiveStarted err', e); });
-    }
-
-    function makeHostEntry(user, pseudo) {
-      var entry = {};
-      entry[user.uid] = {
-        pseudo: pseudo || '?', isHost: true, revealed: false, muted: false,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp(), leftAt: null
-      };
-      return entry;
-    }
-
-    /* Écoute la liste des lives publics actifs/programmés.
-       FIX préventif (leçon retenue du bug d'index composite déjà rencontré
-       deux fois sur ce projet) : orderBy single-field uniquement, tout le
-       reste filtré côté client. Aucun index composite requis. */
-    function listenToLives(callback, onError) {
-      return SIS.db.collection('lives')
-        .orderBy('createdAt', 'desc')
-        .limit(50)
-        .onSnapshot(function (snap) {
-          var lives = [];
-          snap.forEach(function (doc) {
-            var d = doc.data();
-            if (d.visibility === 'private') return;
-            if (d.status !== 'live' && d.status !== 'scheduled') return;
-            lives.push({ id: doc.id, data: d });
-          });
-          callback(lives);
-        }, onError || function (e) { console.error('[SIS.live] listenToLives err', e); });
-    }
-
-    function getLive(liveId) {
-      return SIS.db.collection('lives').doc(liveId).get().then(function (doc) {
-        return doc.exists ? { id: doc.id, data: doc.data() } : null;
-      });
-    }
-
-    function joinAsListener(liveId) {
-      return SIS.db.collection('lives').doc(liveId).update({
-        listenersCount:     firebase.firestore.FieldValue.increment(1),
-        peakListenersCount: firebase.firestore.FieldValue.increment(0) /* recalé par recompute ci-dessous */
-      }).then(function () { return recomputePeak(liveId); });
-    }
-
-    function recomputePeak(liveId) {
-      var ref = SIS.db.collection('lives').doc(liveId);
-      return ref.get().then(function (doc) {
-        var d = doc.data();
-        if (d && (d.listenersCount || 0) > (d.peakListenersCount || 0)) {
-          return ref.update({ peakListenersCount: d.listenersCount });
-        }
-      });
-    }
-
-    function leaveAsListener(liveId) {
-      return SIS.db.collection('lives').doc(liveId).update({
-        listenersCount: firebase.firestore.FieldValue.increment(-1)
-      }).catch(function () {});
-    }
-
-    function requestToSpeak(liveId, pseudo) {
-      var user = SIS.user;
-      if (!user) return Promise.reject(new Error('Non connecté'));
-      if (!SIS.security.rateLimit('speak_request', 5)) return Promise.reject(new Error('Attends un peu avant de redemander'));
-      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(user.uid).set({
-        pseudo: pseudo || '?',
-        requestedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
-    function cancelSpeakRequest(liveId) {
-      var user = SIS.user;
-      if (!user) return Promise.resolve();
-      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(user.uid).delete().catch(function () {});
-    }
-
-    /* orderBy single-field sur la file d'attente aussi */
-    function listenToQueue(liveId, callback) {
-      return SIS.db.collection('lives').doc(liveId).collection('queue')
-        .orderBy('requestedAt', 'asc')
-        .onSnapshot(function (snap) {
-          var queue = [];
-          snap.forEach(function (doc) { queue.push({ uid: doc.id, data: doc.data() }); });
-          callback(queue);
-        }, function (e) { console.error('[SIS.live] listenToQueue err', e); });
-    }
-
-    function acceptSpeaker(liveId, uid, pseudo) {
-      var liveRef = SIS.db.collection('lives').doc(liveId);
-      var updates = {};
-      updates['speakers.' + uid] = {
-        pseudo: pseudo || '?', isHost: false, revealed: false, muted: false,
-        joinedAt: firebase.firestore.FieldValue.serverTimestamp(), leftAt: null
-      };
-      updates.speakersCount = firebase.firestore.FieldValue.increment(1);
-      var batch = SIS.db.batch();
-      batch.update(liveRef, updates);
-      batch.delete(liveRef.collection('queue').doc(uid));
-      return batch.commit().then(function () {
-        SIS.notifs.push(uid, SIS.notifs.TYPES.SPEAK_REQUEST_ACCEPTED, { liveId: liveId });
-      });
-    }
-
-    function declineSpeaker(liveId, uid) {
-      return SIS.db.collection('lives').doc(liveId).collection('queue').doc(uid).delete().then(function () {
-        SIS.notifs.push(uid, SIS.notifs.TYPES.SPEAK_REQUEST_DECLINED, { liveId: liveId });
-      });
-    }
-
-    function muteSpeakerFlag(liveId, uid, muted) {
-      var updates = {};
-      updates['speakers.' + uid + '.muted'] = muted;
-      return SIS.db.collection('lives').doc(liveId).update(updates);
-    }
-
-    function kickSpeaker(liveId, uid) {
-      var updates = {};
-      updates['speakers.' + uid] = firebase.firestore.FieldValue.delete();
-      return SIS.db.collection('lives').doc(liveId).update(updates).then(function () {
-        return SIS.db.collection('lives').doc(liveId).update({ speakersCount: firebase.firestore.FieldValue.increment(-1) });
-      });
-    }
-
-    function endLive(liveId) {
-      return SIS.db.collection('lives').doc(liveId).update({
-        status: 'ended',
-        endedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    }
-
-    function cancelScheduledLive(liveId) {
-      return SIS.db.collection('lives').doc(liveId).update({ status: 'cancelled' });
-    }
-
-    /* orderBy single-field sur le chat du live aussi, modération texte
-       réutilisée telle quelle (SIS.moderation, déjà en place) avant écriture */
-    function sendLiveChatMessage(liveId, uid, pseudo, text) {
-      if (!SIS.security.rateLimit('live_chat', 20)) return Promise.reject(new Error('Trop rapide, ralentis'));
-      return SIS.moderation.checkToxicity(text).then(function (result) {
-        return SIS.db.collection('lives').doc(liveId).collection('chat').add({
-          uid: uid, pseudo: pseudo || '?', text: text,
-          sentAt: firebase.firestore.FieldValue.serverTimestamp(),
-          moderationStatus: result.flagged ? 'flagged' : 'safe'
-        });
-      });
-    }
-
-    function listenToLiveChat(liveId, callback) {
-      return SIS.db.collection('lives').doc(liveId).collection('chat')
-        .orderBy('sentAt', 'desc')
-        .limit(50)
-        .onSnapshot(function (snap) {
-          var msgs = [];
-          snap.forEach(function (doc) {
-            var d = doc.data();
-            if (d.moderationStatus === 'removed') return;
-            msgs.push({ id: doc.id, data: d });
-          });
-          callback(msgs.reverse());
-        }, function (e) { console.error('[SIS.live] listenToLiveChat err', e); });
-    }
-
-    /* ── RTDB : présence live (qui parle, main levée) ──
-       Même pattern que SIS.authHelper.watchPresence, appliqué par salon
-       plutôt qu'à l'échelle du compte. */
-    function setLivePresence(liveId, role) {
-      var user = SIS.user;
-      if (!user || !SIS.rtdb) return;
-      var ref = SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid);
-      var connectedRef = SIS.rtdb.ref('.info/connected');
-      connectedRef.on('value', function (snap) {
-        if (snap.val() === true) {
-          ref.onDisconnect().remove().then(function () {
-            ref.set({
-              role: role, online: true, muted: false, speaking: false,
-              handRaised: false,
-              joinedAt: firebase.database.ServerValue.TIMESTAMP,
-              lastHeartbeat: firebase.database.ServerValue.TIMESTAMP
-            });
-          });
-        }
-      });
-    }
-
-    function clearLivePresence(liveId) {
-      var user = SIS.user;
-      if (!user || !SIS.rtdb) return Promise.resolve();
-      return SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid).remove().catch(function () {});
-    }
-
-    function watchLiveListenerCount(liveId, callback) {
-      if (!SIS.rtdb) { callback(0); return function () {}; }
-      var ref = SIS.rtdb.ref('live_presence/' + liveId);
-      var handler = function (snap) {
-        var count = 0;
-        snap.forEach(function () { count++; });
-        callback(count);
-      };
-      ref.on('value', handler);
-      return function () { ref.off('value', handler); };
-    }
-
-    function setHandRaised(liveId, raised) {
-      var user = SIS.user;
-      if (!user || !SIS.rtdb) return;
-      SIS.rtdb.ref('live_presence/' + liveId + '/' + user.uid + '/handRaised').set(raised);
-    }
-
-    /* ── AGORA : voix réelle (API publique stable du SDK Web v4) ── */
-
-    function initAgoraClient() {
-      return loadAgoraSDK().then(function () {
-        if (!_client) _client = AgoraRTC.createClient({ mode: 'live', codec: 'vp8' });
-        return _client;
-      });
-    }
-
-    /* role: 'host' (hôte/speaker, peut publier) | 'audience' (écoute seule).
-       token: null ne marche qu'en mode App ID seul côté console Agora
-       (dev/test) — cf. avertissement en tête de module pour la prod. */
-    function joinChannel(channelName, uid, role, token) {
-      if (!AGORA_APP_ID) return Promise.reject(new Error('AGORA_APP_ID non configuré — voir SIS.live en haut de core.js'));
-      return initAgoraClient().then(function (client) {
-        return client.setClientRole(role === 'listener' ? 'audience' : 'host').then(function () {
-          return client.join(AGORA_APP_ID, channelName, token || null, uid);
-        });
-      });
-    }
-
-    function publishMic() {
-      if (!_client) return Promise.reject(new Error('Pas de client Agora actif'));
-      return AgoraRTC.createMicrophoneAudioTrack().then(function (track) {
-        _localAudioTrack = track;
-        return _client.publish([track]);
-      });
-    }
-
-    function setMicMuted(muted) {
-      if (_localAudioTrack) _localAudioTrack.setEnabled(!muted);
-    }
-
-    function unpublishMic() {
-      if (!_localAudioTrack || !_client) return Promise.resolve();
-      return _client.unpublish([_localAudioTrack]).then(function () {
-        _localAudioTrack.close();
-        _localAudioTrack = null;
-      });
-    }
-
-    /* Écoute les speakers distants qui rejoignent/publient — branche l'audio
-       automatiquement (obligatoire pour qu'un auditeur entende quoi que ce
-       soit). À appeler une fois après join(). */
-    function onRemoteSpeakers(onUserPublished, onUserLeft) {
-      if (!_client) return;
-      _client.on('user-published', function (remoteUser, mediaType) {
-        _client.subscribe(remoteUser, mediaType).then(function () {
-          if (mediaType === 'audio') {
-            _remoteAudioTracks[remoteUser.uid] = remoteUser.audioTrack;
-            remoteUser.audioTrack.play();
-          }
-          if (typeof onUserPublished === 'function') onUserPublished(remoteUser);
-        });
-      });
-      _client.on('user-unpublished', function (remoteUser) {
-        delete _remoteAudioTracks[remoteUser.uid];
-      });
-      _client.on('user-left', function (remoteUser) {
-        delete _remoteAudioTracks[remoteUser.uid];
-        if (typeof onUserLeft === 'function') onUserLeft(remoteUser);
-      });
-    }
-
-    function leaveChannel() {
-      return unpublishMic().then(function () {
-        Object.keys(_remoteAudioTracks).forEach(function (uid) {
-          try { _remoteAudioTracks[uid].stop(); } catch (e) {}
-        });
-        _remoteAudioTracks = {};
-        return _client ? _client.leave() : Promise.resolve();
-      });
-    }
-
-    return {
-      createLive: createLive,
-      listenToLives: listenToLives,
-      getLive: getLive,
-      joinAsListener: joinAsListener,
-      leaveAsListener: leaveAsListener,
-      requestToSpeak: requestToSpeak,
-      cancelSpeakRequest: cancelSpeakRequest,
-      listenToQueue: listenToQueue,
-      acceptSpeaker: acceptSpeaker,
-      declineSpeaker: declineSpeaker,
-      muteSpeakerFlag: muteSpeakerFlag,
-      kickSpeaker: kickSpeaker,
-      endLive: endLive,
-      cancelScheduledLive: cancelScheduledLive,
-      sendLiveChatMessage: sendLiveChatMessage,
-      listenToLiveChat: listenToLiveChat,
-      setLivePresence: setLivePresence,
-      clearLivePresence: clearLivePresence,
-      watchLiveListenerCount: watchLiveListenerCount,
-      setHandRaised: setHandRaised,
-      joinChannel: joinChannel,
-      publishMic: publishMic,
-      setMicMuted: setMicMuted,
-      unpublishMic: unpublishMic,
-      onRemoteSpeakers: onRemoteSpeakers,
-      leaveChannel: leaveChannel
-    };
-  })();
 
   /* ──────────────────────────────────────────────────────────
      16. POPUP PROFIL — Logique universelle
@@ -2281,7 +1778,7 @@
     var _overlay = null;
 
     function show(pseudo, options) {
-      /* options: { certified, bio, followers, photoUrl, isFollowing } */
+      /* options: { certified, bio, photoUrl } */
       options = options || {};
 
       /* Si pas d'infos, aller chercher dans Firestore */
@@ -2296,21 +1793,7 @@
             }
             var data = snap.docs[0].data();
             var merged = Object.assign({ _loaded: true }, data, options);
-
-            if (typeof merged.isFollowing === 'boolean') {
-              show(pseudo, merged);
-              return;
-            }
-            /* L'appelant n'a pas précisé isFollowing : on le détermine nous-même */
-            SIS.social.isFollowing(data.uid)
-              .then(function (following) {
-                merged.isFollowing = following;
-                show(pseudo, merged);
-              })
-              .catch(function () {
-                merged.isFollowing = false;
-                show(pseudo, merged);
-              });
+            show(pseudo, merged);
           })
           /* FIX: aucun .catch() avant -> une erreur réseau laissait le squelette affiché pour toujours */
           .catch(function () {
@@ -2359,13 +1842,6 @@
                   gradient:  gradient
                 })
             ) +
-            (!opts._loading && !isMe
-              ? '<button class="btn-primary btn-sm" id="pp-follow-btn" style="width:auto">' +
-                  (opts.isFollowing
-                    ? SIS.i18n.t('unfollow')
-                    : SIS.i18n.t('follow')) +
-                '</button>'
-              : '') +
           '</div>' +
           '<div class="pp-info">' +
             (opts._loading
@@ -2376,9 +1852,7 @@
                     ? ' <svg width="14" height="14" viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" fill="url(#bnavGrad)"/></svg>'
                     : '') +
                 '</div>' +
-                '<div class="pp-bio">' + SIS.utils.escHtml(opts.bio || '') +
-                  (opts.followers ? '<br><span class="text-muted text-xs">' + SIS.utils.formatCount(opts.followers) + ' abonnés</span>' : '') +
-                '</div>'
+                '<div class="pp-bio">' + SIS.utils.escHtml(opts.bio || '') + '</div>'
             ) +
           '</div>' +
           '<div class="pp-sis-link">' +
@@ -2388,9 +1862,6 @@
           '</div>' +
           '<div class="pp-actions">' +
             (isMe ? '' :
-              '<button class="pp-btn-follow ' + (opts.isFollowing ? 'active' : '') + '" id="pp-follow-btn2">' +
-                (opts.isFollowing ? '✓ ' + SIS.i18n.t('unfollow') : '➕ ' + SIS.i18n.t('follow')) +
-              '</button>' +
               '<button class="pp-btn-anon" id="pp-anon-btn" title="Envoyer message anonyme">' +
                 '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' +
               '</button>'
@@ -2431,28 +1902,6 @@
           window.open(anonLink, '_blank');
         });
       }
-
-      /* FIX: les boutons Suivre/Ne plus suivre n'avaient aucune logique attachée */
-      var followHandler = function () {
-        if (isMe || !opts.uid) return;
-        if (!SIS.user) { SIS.toast.info(SIS.i18n.t('welcome'), SIS.i18n.t('sign_in')); return; }
-        var wasFollowing = !!opts.isFollowing;
-        SIS.social.toggleFollow(opts.uid, wasFollowing)
-          .then(function (nowFollowing) {
-            opts.isFollowing = nowFollowing;
-            opts.followers = Math.max(0, (opts.followers || 0) + (nowFollowing ? 1 : -1));
-            _render(pseudo, opts); /* re-rendu pour resynchroniser les 2 boutons + le compteur */
-          })
-          .catch(function (err) {
-            SIS.toast.error(SIS.i18n.t('error_network'), (err && err.message) || '');
-          });
-      };
-
-      var followBtn1 = overlay.querySelector('#pp-follow-btn');
-      if (followBtn1) followBtn1.addEventListener('click', followHandler);
-
-      var followBtn2 = overlay.querySelector('#pp-follow-btn2');
-      if (followBtn2) followBtn2.addEventListener('click', followHandler);
 
       SIS.bindAvatarClicks(overlay);
     }
