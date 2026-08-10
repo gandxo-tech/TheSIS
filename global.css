@@ -61,36 +61,8 @@
   --shadow-glow: 0 0 20px rgba(91, 142, 244, 0.20);
 }
 
-[data-theme="light"] {
-  --bg:          #f0f2f8;
-  --surface:     #ffffff;
-  --card:        #ffffff;
-  --card2:       #f4f6fb;
-  --card3:       #eaecf4;
-
-  --border:      rgba(91, 142, 244, 0.15);
-  --border2:     rgba(0, 0, 0, 0.07);
-  --border3:     rgba(0, 0, 0, 0.04);
-
-  --text:        #0d0f18;
-  --text2:       #5a6480;
-  --muted:       #9aa3b8;
-
-  --nav-bg:      rgba(255, 255, 255, 0.97);
-  --nav-border:  rgba(0, 0, 0, 0.06);
-
-  --input-bg:    #f4f6fb;
-  --input-focus: rgba(91, 142, 244, 0.12);
-
-  --overlay:     rgba(0, 0, 0, 0.50);
-  --overlay2:    rgba(0, 0, 0, 0.30);
-
-  --shadow-sm:   0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-md:   0 4px 20px rgba(0, 0, 0, 0.10);
-  --shadow-lg:   0 8px 40px rgba(0, 0, 0, 0.12);
-  --shadow-blue: 0 4px 20px rgba(91, 142, 244, 0.25);
-  --shadow-glow: 0 0 20px rgba(91, 142, 244, 0.10);
-}
+/* [data-theme="light"] retiré : SIS est maintenant dark-only (voir
+   SIS.theme dans core.js) — ce bloc ne pouvait plus jamais s'appliquer. */
 
 /* ─────────────────────────────────────────
    2. CONSTANTES FIXES (indépendantes du thème)
@@ -994,35 +966,7 @@ textarea.input {
    dans feed.css ; les garder aux deux endroits avec des couleurs
    différentes était une vraie source d'incohérence visuelle. */
 
-/* ─────────────────────────────────────────
-   15. STORY RING
-───────────────────────────────────────── */
-.story-ring {
-  padding: 3px;
-  border-radius: 50%;
-  background: var(--grad);
-  display: inline-flex;
-  flex-shrink: 0;
-  cursor: pointer;
-  transition: transform var(--t-base);
-}
-
-.story-ring:active { transform: scale(0.93); }
-
-.story-ring.seen {
-  background: var(--border2);
-}
-
-.story-av {
-  border-radius: 50%;
-  border: 2.5px solid var(--bg);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--card2);
-  font-size: 18px;
-}
+/* Section "STORY RING" retirée : Stories n'existe plus dans le produit. */
 
 /* ─────────────────────────────────────────
    16. LOADER / SKELETON
@@ -1445,7 +1389,99 @@ textarea.input {
 body { padding-bottom: calc(var(--nav-h) + 4px); }
 body[data-page="auth"]  { padding-bottom: 0 !important; }
 
-/* Forcer le contenu des onglets Lives à ne pas être caché derrière le nav
-   (remplace .feed-content, renommé lors du pivot Lives) */
-.lives-tab-content { padding-bottom: calc(var(--nav-h) + 16px) !important; }
+/* FIX : .lives-tab-content n'existe plus (Lives entièrement retiré du
+   produit) — remplacé par .anon-hero, qui gère son propre espacement. */
+
+/* ══════════════════════════════════════
+   ANON HERO — bloc "reçois des messages anonymes", style NGL.
+   Partagé entre l'Accueil (feed.html) et l'écran de révélation du lien en
+   fin d'inscription (auth.html) — d'où sa présence ici plutôt que dans
+   feed.css, qu'auth.html ne charge pas.
+══════════════════════════════════════ */
+.anon-hero {
+  position: relative;
+  overflow: hidden;
+  margin: 12px 12px 0;
+  padding: 36px 24px 28px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, #1a1230 0%, #0d0c14 65%);
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+}
+.anon-hero-glow { position: absolute; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; }
+.anon-hero-glow.glow-a { top: -60px; left: -40px; width: 220px; height: 220px; background: var(--purple); opacity: 0.35; filter: blur(70px); }
+.anon-hero-glow.glow-b { bottom: -60px; right: -40px; width: 220px; height: 220px; background: var(--blue); opacity: 0.3; filter: blur(70px); }
+
+.anon-hero-icon {
+  width: 64px; height: 64px; border-radius: 20px;
+  background: var(--grad);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 8px 30px rgba(91,142,244,0.35);
+  position: relative; z-index: 2;
+}
+.anon-hero-title {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 25px; line-height: 1.25;
+  color: #fff; margin-bottom: 10px; position: relative; z-index: 2;
+}
+.anon-hero-sub {
+  font-size: 13.5px; line-height: 1.55; color: rgba(255,255,255,0.65);
+  max-width: 300px; margin-bottom: 22px; position: relative; z-index: 2;
+}
+
+.anon-link-card {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; max-width: 320px;
+  padding: 13px 16px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--r-full);
+  color: rgba(255,255,255,0.85);
+  font-size: 13px;
+  margin-bottom: 14px;
+  position: relative; z-index: 2;
+  overflow: hidden;
+}
+#anon-link-text, #reveal-link-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
+
+.anon-share-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; max-width: 320px;
+  padding: 15px;
+  background: var(--grad);
+  color: #fff; font-weight: 700; font-size: 15px;
+  border: none; border-radius: var(--r-full);
+  box-shadow: 0 6px 24px rgba(91,142,244,0.35);
+  cursor: pointer;
+  margin-bottom: 10px;
+  position: relative; z-index: 2;
+}
+.anon-share-btn:active { transform: scale(0.98); }
+
+.anon-copy-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: none; border: none;
+  color: rgba(255,255,255,0.55); font-size: 12.5px; font-weight: 600;
+  padding: 8px; cursor: pointer;
+  position: relative; z-index: 2;
+}
+
+.anon-steps {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 18px 12px 20px;
+}
+.anon-step {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: var(--r);
+}
+.anon-step-icon {
+  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  background: var(--card2);
+  display: flex; align-items: center; justify-content: center;
+}
+.anon-step-text { font-size: 13px; color: var(--text2); line-height: 1.4; }
+.anon-step-text strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 1px; }
 

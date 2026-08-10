@@ -8,10 +8,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
 
   <!-- SEO : titre + description uniques, orientés recherche -->
-  <title>SIS — Messages anonymes et lives audio en direct</title>
+  <title>SIS — Ce qu'ils n'osent pas te dire en face</title>
   <!-- FIX SEO: description raccourcie de 165 à ~150 caractères pour éviter
        la troncature dans les résultats Google (limite ~155-160 car.). -->
-  <meta name="description" content="SIS : envoie des messages anonymes et rejoins des lives audio en direct. Dis ce que tu penses vraiment, sans filtre. Gratuit, rejoins-nous.">
+  <meta name="description" content="Reçois des messages 100% anonymes sur SIS. Personne ne saura jamais qui. Anonyme, direct, sans filtre. Gratuit.">
   <meta name="robots" content="index, follow">
   <meta name="author" content="GBAGUIDI Ahotondji Exaucé">
   <!-- Domaine confirmé : the-sis.vercel.app. L'autre domaine trouvé
@@ -29,7 +29,7 @@
     "name": "SIS — Say It Safely",
     "alternateName": "SIS",
     "url": "https://the-sis.vercel.app/",
-    "description": "Plateforme de messages anonymes et de lives audio en direct.",
+    "description": "Plateforme de messages 100% anonymes. Anonyme, direct, sans filtre.",
     "applicationCategory": "SocialNetworkingApplication",
     "operatingSystem": "Web",
     "inLanguage": "fr",
@@ -87,7 +87,7 @@
     "@type": "WebApplication",
     "name": "SIS — Say It Safely",
     "url": "https://the-sis.vercel.app/",
-    "description": "Plateforme de messages anonymes et de lives audio en direct.",
+    "description": "Plateforme de messages 100% anonymes. Anonyme, direct, sans filtre.",
     "applicationCategory": "SocialNetworkingApplication",
     "operatingSystem": "Web",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
@@ -107,7 +107,7 @@
       {
         "@type": "Question",
         "name": "SIS est-il gratuit ?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Oui, SIS est entièrement gratuit. Tu peux créer un compte, envoyer des messages anonymes et rejoindre des lives sans payer." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Oui, SIS est entièrement gratuit. Tu peux créer un compte et envoyer des messages anonymes sans payer." }
       },
       {
         "@type": "Question",
@@ -121,8 +121,8 @@
       },
       {
         "@type": "Question",
-        "name": "Faut-il un compte pour découvrir SIS ?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Non, tu peux explorer les lives en cours sans créer de compte. Un compte gratuit est nécessaire pour héberger un live, y prendre la parole, ou envoyer des messages anonymes." }
+        "name": "Faut-il un compte pour utiliser SIS ?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Oui, un compte gratuit est nécessaire pour obtenir ton lien personnel et recevoir des messages anonymes." }
       }
     ]
   }
@@ -131,157 +131,12 @@
 <body data-page="auth">
 
 <!-- ══════════════════════════════════════════
-     ÉCRAN 1 — SLIDES ONBOARDING
+     ÉCRAN 1 — AUTH (Login / Register)
 ══════════════════════════════════════════ -->
-<div id="screen-slides" class="auth-screen active">
-
-  <!-- Slides container -->
-  <div class="slides-wrapper" id="slides-wrapper">
-
-    <!-- SLIDE 1 — Intro SIS -->
-    <div class="slide" data-index="0">
-      <div class="slide-visual slide-visual-1">
-        <div class="slide-orb orb-1"></div>
-        <div class="slide-orb orb-2"></div>
-        <div class="slide-icon-wrap">
-          <img src="https://i.ibb.co/DD2rZ1XL/icon-512.png" alt="SIS" class="slide-logo-img">
-        </div>
-      </div>
-      <div class="slide-content">
-        <div class="slide-tag">Say It Safely</div>
-        <h1 class="slide-title">Dis ce que tu<br>penses vraiment.</h1>
-        <p class="slide-desc">SIS est l'espace où tu t'exprimes sans filtre, sans jugement. Anonyme si tu veux. Libre toujours.</p>
-      </div>
-    </div>
-
-    <!-- SLIDE 2 — Feed & Posts -->
-    <div class="slide" data-index="1">
-      <div class="slide-visual slide-visual-2">
-        <div class="slide-orb orb-3"></div>
-        <div class="slide-mock-feed">
-          <div class="mock-post">
-            <div class="mock-post-header">
-              <div class="mock-av" style="background:linear-gradient(135deg,#f04f5a,#f59e0b)"></div>
-              <div class="mock-post-meta"><div class="mock-bar w-60"></div><div class="mock-bar w-40 sm"></div></div>
-              <div class="mock-badge red">Confession</div>
-            </div>
-            <div class="mock-bar w-full sm" style="margin:8px 0 4px"></div>
-            <div class="mock-bar w-80 sm"></div>
-          </div>
-          <div class="mock-post" style="margin-top:8px;opacity:0.7">
-            <div class="mock-post-header">
-              <div class="mock-av" style="background:linear-gradient(135deg,#5B8EF4,#8B5CF6)"></div>
-              <div class="mock-post-meta"><div class="mock-bar w-50"></div><div class="mock-bar w-30 sm"></div></div>
-              <div class="mock-badge blue">Battle ⚡</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="slide-content">
-        <div class="slide-tag">8 types de posts</div>
-        <h2 class="slide-title">Un feed comme<br>nulle part ailleurs.</h2>
-        <p class="slide-desc">Confession, Battle, Burn, Whisper, Poll, Thread, CSDPM, Media. Un algorithme qui te comprend vraiment.</p>
-      </div>
-    </div>
-
-    <!-- SLIDE 3 — Anonymat & Identité -->
-    <div class="slide" data-index="2">
-      <div class="slide-visual slide-visual-3">
-        <div class="slide-orb orb-4"></div>
-        <div class="slide-identity-demo">
-          <div class="id-option active-id">
-            <div class="id-av" style="background:linear-gradient(135deg,#f04f5a,#8B5CF6)">?</div>
-            <span>Anonyme</span>
-          </div>
-          <div class="id-option">
-            <div class="id-av" style="background:linear-gradient(135deg,#5B8EF4,#22d47a)">🎭</div>
-            <span>Mystère</span>
-          </div>
-          <div class="id-option">
-            <div class="id-av" style="background:linear-gradient(135deg,#5B8EF4,#8B5CF6)">E</div>
-            <span>Mon nom</span>
-          </div>
-        </div>
-      </div>
-      <div class="slide-content">
-        <div class="slide-tag">Identité à la carte</div>
-        <h2 class="slide-title">Tu choisis qui<br>tu veux être.</h2>
-        <p class="slide-desc">Poste anonymement, sous un masque mystère, ou avec ton vrai nom. Post par post. Ton choix, ta règle.</p>
-      </div>
-    </div>
-
-    <!-- SLIDE 4 — Lives Audio (remplace Chat & Mystère, fonctionnalité retirée) -->
-    <div class="slide" data-index="3">
-      <div class="slide-visual slide-visual-4">
-        <div class="slide-orb orb-5"></div>
-        <div class="slide-live-demo">
-          <div class="slide-live-badge"><span class="slide-live-dot"></span> EN DIRECT</div>
-          <div class="slide-live-speakers">
-            <div><div class="slide-live-av">🎙️</div></div>
-            <div><div class="slide-live-av">🎤</div></div>
-            <div><div class="slide-live-av">👂</div></div>
-          </div>
-        </div>
-      </div>
-      <div class="slide-content">
-        <div class="slide-tag">Lives Audio</div>
-        <h2 class="slide-title">La parole,<br>en direct.</h2>
-        <p class="slide-desc">Ouvre l'antenne ou rejoins un salon audio anonyme. Demande la parole, ou reste à l'écoute. Modération active en continu.</p>
-      </div>
-    </div>
-
-    <!-- SLIDE 5 — Lien anonyme -->
-    <div class="slide" data-index="4">
-      <div class="slide-visual slide-visual-5">
-        <div class="slide-orb orb-6"></div>
-        <div class="slide-link-demo">
-          <div class="link-card">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <span>sis-send.vercel.app/?to=toi</span>
-          </div>
-          <div class="link-arrow">↓</div>
-          <div class="link-msg">
-            <div class="link-msg-label">Message anonyme reçu</div>
-            <div class="link-msg-text">"T'as changé ma vie sans le savoir 💙"</div>
-          </div>
-        </div>
-      </div>
-      <div class="slide-content">
-        <div class="slide-tag">Messages anonymes</div>
-        <h2 class="slide-title">Reçois des vérités<br>que personne n'ose dire.</h2>
-        <p class="slide-desc">Partage ton lien SIS sur TikTok, Instagram, WhatsApp. Tes followers te parlent sans se dévoiler.</p>
-      </div>
-    </div>
-
-  </div><!-- /slides-wrapper -->
-
-  <!-- Dots de pagination -->
-  <div class="slides-dots" id="slides-dots">
-    <div class="dot active" data-i="0"></div>
-    <div class="dot" data-i="1"></div>
-    <div class="dot" data-i="2"></div>
-    <div class="dot" data-i="3"></div>
-    <div class="dot" data-i="4"></div>
-  </div>
-
-  <!-- Actions slides -->
-  <div class="slides-actions">
-    <button class="btn-ghost" id="btn-skip">Passer</button>
-    <button class="btn-primary" id="btn-next" style="width:auto;padding:13px 32px">Suivant →</button>
-  </div>
-
-</div><!-- /screen-slides -->
-
-<!-- ══════════════════════════════════════════
-     ÉCRAN 2 — AUTH (Login / Register)
-══════════════════════════════════════════ -->
-<div id="screen-auth" class="auth-screen">
+<div id="screen-auth" class="auth-screen active">
 
   <!-- Header -->
   <div class="auth-header">
-    <button class="auth-back-btn" id="btn-back-to-slides" aria-label="Retour">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
     <div class="auth-logo-row">
       <img src="https://i.ibb.co/xt8mxn0H/favicon-96x96.png" alt="SIS" class="auth-logo-img">
       <div>
@@ -346,8 +201,8 @@
   <!-- ── FORMULAIRE REGISTER ── -->
   <div id="form-register" class="auth-form">
     <div class="auth-welcome">
-      <h2 class="auth-welcome-title">Rejoins SIS 🚀</h2>
-      <p class="auth-welcome-sub">Crée ton compte en quelques secondes.</p>
+      <h2 class="auth-welcome-title">Ce qu'ils n'osent pas<br>te dire en face.</h2>
+      <p class="auth-welcome-sub">Anonyme. Direct. Sans filtre.</p>
     </div>
 
     <!-- ÉTAPE 1 : pseudo + email -->
@@ -431,55 +286,11 @@
 </div><!-- /screen-auth -->
 
 <!-- ══════════════════════════════════════════
-     ÉCRAN 3 — CENTRES D'INTÉRÊT
-══════════════════════════════════════════ -->
-<div id="screen-interests" class="auth-screen">
-  <div class="interests-header">
-    <div class="auth-logo-row" style="justify-content:center">
-      <img src="https://i.ibb.co/xt8mxn0H/favicon-96x96.png" alt="SIS" class="auth-logo-img">
-    </div>
-    <h2 class="interests-title">Tes centres d'intérêt</h2>
-    <p class="interests-sub">Choisis <strong>au moins 3</strong> · le feed s'adapte à toi</p>
-    <div class="interests-counter">
-      <span id="interests-count">0</span> sélectionnés
-    </div>
-  </div>
-
-  <div class="interest-grid" id="interest-grid">
-    <div class="interest-chip" data-tag="musique"><em>🎵</em>Musique</div>
-    <div class="interest-chip" data-tag="gaming"><em>🎮</em>Gaming</div>
-    <div class="interest-chip" data-tag="tech"><em>💻</em>Tech</div>
-    <div class="interest-chip" data-tag="relations"><em>❤️</em>Relations</div>
-    <div class="interest-chip" data-tag="art"><em>🎨</em>Art</div>
-    <div class="interest-chip" data-tag="sport"><em>⚽</em>Sport</div>
-    <div class="interest-chip" data-tag="education"><em>📚</em>Éducation</div>
-    <div class="interest-chip" data-tag="actu"><em>🌍</em>Actualité</div>
-    <div class="interest-chip" data-tag="humour"><em>😂</em>Humour</div>
-    <div class="interest-chip" data-tag="mode"><em>👗</em>Mode</div>
-    <div class="interest-chip" data-tag="food"><em>🍜</em>Food</div>
-    <div class="interest-chip" data-tag="voyage"><em>✈️</em>Voyage</div>
-    <div class="interest-chip" data-tag="politique"><em>🗳️</em>Politique</div>
-    <div class="interest-chip" data-tag="spiritualite"><em>🙏</em>Spiritualité</div>
-    <div class="interest-chip" data-tag="finance"><em>💰</em>Finance</div>
-    <div class="interest-chip" data-tag="sante"><em>🏃</em>Santé</div>
-    <div class="interest-chip" data-tag="cinema"><em>🎬</em>Cinéma</div>
-    <div class="interest-chip" data-tag="manga"><em>📺</em>Manga/Série</div>
-  </div>
-
-  <div class="interests-actions">
-    <button class="btn-primary" id="btn-interests-done" disabled>Continuer →</button>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════
-     ÉCRAN 4 — PHOTO DE PROFIL + BIO
+     ÉCRAN 2 — PHOTO DE PROFIL
 ══════════════════════════════════════════ -->
 <div id="screen-profile-setup" class="auth-screen">
   <div class="profile-setup-header">
-    <button class="auth-back-btn" id="btn-back-interests">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <h2 class="profile-setup-title">Personnalise ton profil</h2>
+    <h2 class="profile-setup-title">Une photo ?</h2>
     <button class="btn-ghost btn-sm" id="btn-skip-setup">Passer</button>
   </div>
 
@@ -504,18 +315,40 @@
       </div>
       <span id="upload-progress-label">Upload… 0%</span>
     </div>
-
-    <!-- Bio -->
-    <div class="input-group">
-      <label class="input-label" for="setup-bio">Bio <span style="color:var(--muted);font-weight:400;text-transform:none">(optionnel)</span></label>
-      <textarea id="setup-bio" class="input" rows="3" placeholder="Dis quelque chose sur toi…" maxlength="160"></textarea>
-      <div class="bio-counter"><span id="bio-count">0</span>/160</div>
-    </div>
-
   </div>
 
   <div class="profile-setup-actions">
-    <button class="btn-primary" id="btn-go-feed">Aller sur le feed 🚀</button>
+    <button class="btn-primary" id="btn-go-feed">Voir mon lien →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     ÉCRAN 3 — LIEN (reveal)
+══════════════════════════════════════════ -->
+<div id="screen-link-reveal" class="auth-screen">
+  <div class="anon-hero" style="margin:0;border-radius:0;min-height:100%;justify-content:center">
+    <div class="anon-hero-glow glow-a"></div>
+    <div class="anon-hero-glow glow-b"></div>
+
+    <div class="anon-hero-icon">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 8.4 6.1a2.6 2.6 0 0 0 3.2 0L22 7"/></svg>
+    </div>
+
+    <h1 class="anon-hero-title">Ton lien est prêt.<br>Balance-le.</h1>
+    <p class="anon-hero-sub">Story, bio, groupe — n'importe où. Chaque message que tu reçois reste 100% anonyme.</p>
+
+    <div class="anon-link-card" id="reveal-link-card">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <span id="reveal-link-text">sis-send.vercel.app/…</span>
+    </div>
+
+    <button class="anon-share-btn" id="btn-reveal-share">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Partager mon lien
+    </button>
+    <button class="anon-copy-btn" id="btn-enter-app">
+      Plus tard, entrer dans SIS →
+    </button>
   </div>
 </div>
 

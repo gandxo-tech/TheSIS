@@ -19,49 +19,6 @@
   <link rel="stylesheet" href="global.css">
   <link rel="stylesheet" href="pages.css">
   <style>
-    /* ── AJOUT : mode visiteur du profil + liste abonnés/suivis ──
-       Nouveaux composants non couverts par pages.css (non fourni). */
-    #btn-follow-visitor {
-      min-width: 92px;
-    }
-    #btn-follow-visitor.following {
-      background: var(--card2);
-      color: var(--text2);
-    }
-    .follow-list-sheet {
-      position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
-      width: 100%; max-width: 480px; max-height: 72vh;
-      background: var(--card); border-radius: 20px 20px 0 0;
-      padding: 10px 16px calc(16px + env(safe-area-inset-bottom));
-      display: flex; flex-direction: column;
-      box-shadow: 0 -8px 30px rgba(0,0,0,0.3);
-    }
-    .follow-list-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .follow-list-items {
-      overflow-y: auto; flex: 1;
-      display: flex; flex-direction: column; gap: 2px;
-      -webkit-overflow-scrolling: touch;
-    }
-    .follow-list-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 4px; border-radius: 12px; cursor: pointer;
-      transition: background 0.15s ease;
-    }
-    .follow-list-item:active { background: var(--card2); }
-    .follow-list-info { flex: 1; min-width: 0; }
-    .follow-list-name {
-      display: flex; align-items: center; gap: 4px;
-      font-weight: 600; font-size: 14px; color: var(--text);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .follow-list-bio {
-      font-size: 12px; color: var(--muted);
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-
     /* ── AJOUT : panel admin, relocalisé depuis chat.html (supprimé) ── */
     .admin-panel {
       display: flex; flex-direction: column; height: 100%; background: var(--bg);
@@ -114,7 +71,6 @@
     </button>
   </div>
   <div style="display:none;gap:7px;align-items:flex-end" id="profil-visitor-actions">
-    <button class="btn-ghost btn-sm" id="btn-follow-visitor">Suivre</button>
     <a class="btn-primary btn-sm" id="btn-message-visitor" href="#" target="_blank" style="text-decoration:none;text-align:center">Message anonyme</a>
   </div>
 </div>
@@ -138,45 +94,9 @@
   </div>
 </div>
 
-<!-- STATS -->
-<div class="profil-stats" id="profil-stats">
-  <div class="pstat" id="pstat-followers-row" style="cursor:pointer"><div class="pstat-v skeleton-text" id="stat-followers" style="height:18px;width:40px;border-radius:4px;background:var(--card2)"></div><div class="pstat-l">Abonnés</div></div>
-  <div class="pstat" id="pstat-following-row" style="cursor:pointer"><div class="pstat-v skeleton-text" id="stat-following" style="height:18px;width:40px;border-radius:4px;background:var(--card2)"></div><div class="pstat-l">Suivis</div></div>
-  <div class="pstat"><div class="pstat-v skeleton-text" id="stat-reactions" style="height:18px;width:40px;border-radius:4px;background:var(--card2)"></div><div class="pstat-l">Réactions</div></div>
-  <div class="pstat"><div class="pstat-v" id="stat-viral">—</div><div class="pstat-l">Viraux</div></div>
-</div>
-
-<!-- ONGLETS POSTS -->
-<div class="profil-tabs">
-  <div class="ptab active" data-tab="posts">Posts</div>
-  <div class="ptab" data-tab="anonymous">Anonymes</div>
-  <div class="ptab" data-tab="viral">Viraux</div>
-  <div class="ptab" data-tab="stats">Stats</div>
-</div>
-
-<!-- GRILLE POSTS -->
-<div id="tab-posts" class="profil-tab-content active">
-  <div class="profil-posts-grid" id="profil-posts-grid">
-    <div class="pgrid-skeleton"></div>
-    <div class="pgrid-skeleton"></div>
-    <div class="pgrid-skeleton"></div>
-    <div class="pgrid-skeleton"></div>
-    <div class="pgrid-skeleton"></div>
-    <div class="pgrid-skeleton"></div>
-  </div>
-</div>
-
-<div id="tab-anonymous" class="profil-tab-content">
-  <div class="anon-msgs-list" id="anon-msgs-list"></div>
-</div>
-
-<div id="tab-viral" class="profil-tab-content">
-  <div class="profil-posts-grid" id="viral-posts-grid"></div>
-</div>
-
-<div id="tab-stats" class="profil-tab-content">
-  <div class="profil-stats-detail" id="profil-stats-detail"></div>
-</div>
+<!-- Messages anonymes — la seule section restante maintenant que Lives,
+     Posts, et Follow/Abonnés sont tous retirés du produit -->
+<div class="anon-msgs-list" id="anon-msgs-list"></div>
 
 <!-- BOTTOM NAV -->
 
@@ -232,13 +152,6 @@
         <option value="en">🇬🇧 English</option>
         <option value="pt">🇧🇷 Português</option>
       </select>
-    </div>
-    <div class="input-group">
-      <label class="input-label">Thème</label>
-      <div style="display:flex;gap:8px">
-        <div class="theme-opt active" data-theme="dark">🌙 Sombre</div>
-        <div class="theme-opt" data-theme="light">☀️ Clair</div>
-      </div>
     </div>
     <button class="btn-primary" id="btn-save-profil">Sauvegarder</button>
   </div>
@@ -370,19 +283,6 @@
   </div>
 </div>
 
-<!-- ══ BOTTOM SHEET — LISTE ABONNÉS / SUIVIS ══ -->
-<div id="follow-list-overlay" class="overlay-backdrop" style="display:none">
-  <div class="follow-list-sheet">
-    <div class="sheet-handle"></div>
-    <div class="follow-list-header">
-      <h2 class="sheet-title" id="follow-list-title" style="margin-bottom:0">Abonnés</h2>
-      <button class="topbar-btn" id="btn-close-follow-list" aria-label="Fermer">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="follow-list-items" id="follow-list-items"></div>
-  </div>
-</div>
 <div id="admin-panel-overlay" class="overlay-full" style="display:none">
   <div class="admin-panel">
     <div class="composer-header">
